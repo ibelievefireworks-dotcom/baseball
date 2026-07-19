@@ -181,7 +181,10 @@
         <div class="qtext" id="qtext"></div>
         <div class="answers" id="answers"></div>
         <div class="explain" id="explain"></div>
-        <button class="btn hidden" id="nextBtn">次の問題 ▶</button>
+        <div class="row" style="gap:8px;">
+          <button class="btn lite hidden" id="prevBtn" style="flex:1;">◀ もどる</button>
+          <button class="btn hidden" id="nextBtn" style="flex:1;">次の問題 ▶</button>
+        </div>
       </div>
     </div>
 
@@ -554,7 +557,7 @@ const BOOKS = ["実戦","極意","リード術","野村ノート","OX"];
 const BOOK_LABEL = {"実戦":"実戦シナリオ","極意":"配球の極意","リード術":"配球学・リード術","野村ノート":"野村ノート","OX":"○×クイズ"};
 const BOOK_AUTHOR = {"実戦":"各書の原則を応用","極意":"全国野球技術研究会","リード術":"野村克也・野村克則","野村ノート":"野村克也","OX":"正誤で総チェック"};
 // ○×は「○×クイズ」という選択グループとして全問一覧に合流（出題時は⭕/❌の2択）
-const OXITEMS = OXBANK.map(x=>({b:"OX",c:"○×クイズ",q:x.q,t:x.t,e:x.e,p:x.p,ox:true}));
+const OXITEMS = OXBANK.map(x=>({b:"OX",c:"まとめてチェック",q:x.q,t:x.t,e:x.e,p:x.p,ox:true}));
 const ALLBANK = BANK.concat(OXITEMS);
 // 言語化は「全部の章🏆（定着80%）」を達成したプレイヤーにだけボタンが出現する
 // カテゴリ一覧（出現順）
@@ -735,7 +738,7 @@ function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.flo
 /* ---- 出題アイテム生成 ---- */
 function mkOxItem(x){
   const opts=[{t:"⭕ 正しい",correct:x.t===true},{t:"❌ 誤り",correct:x.t===false}];
-  return {b:"OX",c:"○×クイズ",q:x.q,e:x.e,p:x.p,opts,ans:(x.t?0:1),speed:false,qid:oxId(x)};
+  return {b:"OX",c:"まとめてチェック",q:x.q,e:x.e,p:x.p,opts,ans:(x.t?0:1),speed:false,qid:oxId(x)};
 }
 function mkMcItem(x,speed){
   if(speed){
@@ -819,6 +822,7 @@ function renderQ(){
   $("qmeta").innerHTML='<span class="tag">'+BOOK_LABEL[q.b]+'</span><span>'+q.c+'</span>';
   $("qtext").textContent=q.q;
   const A=$("answers"); A.innerHTML="";
+  const ex=$("explain"); ex.className="explain"; ex.innerHTML="";
   if(q.voice){
     const hint=document.createElement("div");
     hint.style.cssText="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:4px;";
@@ -829,6 +833,13 @@ function renderQ(){
     b.innerHTML='<span class="mk">💬</span>模範解答を見る';
     b.onclick=()=>revealModel(b);
     A.appendChild(b);
+    if(q.done){
+      b.disabled=true; b.classList.add("dim");
+      ex.innerHTML="💬 <b>模範解答</b><br>"+q.model
+        +'<span class="src">出典の目安：'+BOOK_LABEL[q.b]+" "+q.p+"</span>"
+        +'<div style="margin-top:8px;font-weight:700;">'+(q.done.voice?"⭕ 言えた（自己採点済み）":"❌ まだ（自己採点済み）")+'</div>';
+      ex.classList.add("show");
+    }
   } else {
     const letters=(q.b==="OX")?["○","×"]:["A","B","C","D","E"];
     q.opts.forEach((o,i)=>{
@@ -838,11 +849,38 @@ function renderQ(){
       b.onclick=()=>choose(i,b);
       A.appendChild(b);
     });
+    if(q.done) paintDone(q);
   }
-  const ex=$("explain"); ex.className="explain"; ex.innerHTML="";
-  $("nextBtn").classList.add("hidden");
-  if(q.speed){ startTimer(); } else { $("timerWrap").classList.add("hidden"); }
+  updateNav();
+  if(q.speed && !q.done){ startTimer(); } else { $("timerWrap").classList.add("hidden"); }
 }
+
+/* ---- 解答済み表示とナビゲーション ---- */
+function paintDone(q){
+  const btns=[...$("answers").children];
+  btns.forEach((b,j)=>{
+    b.disabled=true;
+    if(j===q.ans) b.classList.add("correct");
+    if(q.done.sel>=0 && j===q.done.sel && q.done.sel!==q.ans) b.classList.add("wrong");
+    if(j!==q.ans && j!==q.done.sel) b.classList.add("dim");
+  });
+  const ok=(q.done.sel===q.ans);
+  const ex=$("explain");
+  const srcLabel=(q.b==="実戦")?("応用問題｜根拠："+q.p)
+    :(q.b==="OX")?("正誤クイズ｜根拠："+q.p)
+    :("出典の目安："+BOOK_LABEL[q.b]+" "+q.p);
+  const head = ok ? "⭕ <b>正解！</b>" : (q.done.sel<0 ? "⏱ <b>時間切れ</b>　正解は「"+q.opts[q.ans].t+"」" : "❌ <b>不正解</b>　正解は「"+q.opts[q.ans].t+"」");
+  ex.innerHTML=head+"<br>"+q.e+'<span class="src">'+srcLabel+"</span>";
+  ex.classList.add("show");
+}
+function updateNav(){
+  const s=session, q=s.qs[s.idx];
+  $("prevBtn").classList.toggle("hidden", s.idx===0);
+  const nb=$("nextBtn");
+  nb.classList.toggle("hidden", !q.done);
+  nb.textContent = (s.idx===s.qs.length-1)?"結果を見る ▶":"次の問題 ▶";
+}
+$("prevBtn").onclick=()=>{ const s=session; if(s&&s.idx>0){ clearTimer(); s.idx--; renderQ(); } };
 
 /* ---- 言語化：模範解答と自己採点 ---- */
 function revealModel(btn){
@@ -861,14 +899,14 @@ function revealModel(btn){
 }
 function gradeSelf(ok){
   const s=session, q=s.qs[s.idx];
+  if(q.done) return;
+  q.done={voice:ok};
   if(ok) s.score++;
   recordAnswer(q.qid, ok);
   s.answers.push({q:q.q, your: ok?"⭕ 言えた（自己採点）":"❌ まだ（自己採点）", correct:q.model, ok, e:"", p:q.p, book:q.b, c:q.c});
   $("scoreNow").textContent=s.score;
   $("sgOk").disabled=true; $("sgNg").disabled=true;
-  const nb=$("nextBtn");
-  nb.classList.remove("hidden");
-  nb.textContent = (s.idx===s.qs.length-1)?"結果を見る ▶":"次の問題 ▶";
+  updateNav();
 }
 
 /* ---- 回答 ---- */
@@ -876,13 +914,8 @@ function choose(i,btn){
   clearTimer();
   $("timerWrap").classList.add("hidden");
   const s=session, q=s.qs[s.idx];
-  const btns=[...$("answers").children];
-  btns.forEach((b,j)=>{
-    b.disabled=true;
-    if(j===q.ans) b.classList.add("correct");
-    if(i>=0 && j===i && i!==q.ans) b.classList.add("wrong");
-    if(j!==q.ans && j!==i) b.classList.add("dim");
-  });
+  if(q.done) return; // 解答済み（もどるで再訪中）は再回答不可
+  q.done={sel:i};
   const ok=(i===q.ans);
   if(ok) s.score++;
   // 2択スピードの正解はマスター判定に入れない（腕試し用）。ミスは復習プールへ。
@@ -890,16 +923,8 @@ function choose(i,btn){
   const yourText = (i<0) ? "（時間切れ）" : q.opts[i].t;
   s.answers.push({q:q.q, your:yourText, correct:q.opts[q.ans].t, ok, e:q.e, p:q.p, book:q.b, c:q.c});
   $("scoreNow").textContent=s.score;
-  const ex=$("explain");
-  const srcLabel=(q.b==="実戦")?("応用問題｜根拠："+q.p)
-    :(q.b==="OX")?("正誤クイズ｜根拠："+q.p)
-    :("出典の目安："+BOOK_LABEL[q.b]+" "+q.p);
-  const head = ok ? "⭕ <b>正解！</b>" : (i<0 ? "⏱ <b>時間切れ</b>　正解は「"+q.opts[q.ans].t+"」" : "❌ <b>不正解</b>　正解は「"+q.opts[q.ans].t+"」");
-  ex.innerHTML=head+"<br>"+q.e+'<span class="src">'+srcLabel+"</span>";
-  ex.classList.add("show");
-  const nb=$("nextBtn");
-  nb.classList.remove("hidden");
-  nb.textContent = (s.idx===s.qs.length-1)?"結果を見る ▶":"次の問題 ▶";
+  paintDone(q);
+  updateNav();
 }
 
 $("nextBtn").onclick=()=>{
