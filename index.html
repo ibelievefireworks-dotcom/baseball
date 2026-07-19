@@ -156,11 +156,11 @@
 
       <h2 class="sec" style="margin-top:18px;">本をえらぶ</h2>
       <div class="chips" id="bookChips"></div>
-      <h2 class="sec" style="margin-top:18px;">分野（章）</h2>
+      <h2 class="sec" style="margin-top:18px;">章をえらぶ</h2>
       <div id="catChips"></div>
       <div class="row">
-        <button class="ghost" id="selAll">すべて選択</button>
-        <button class="ghost" id="selNone">すべて解除</button>
+        <button class="ghost" id="selAll">この本の全章をえらぶ</button>
+        <button class="ghost" id="selNone">解除</button>
       </div>
 
       <button class="btn" id="startBtn">スタート ▶（選んだ章をぜんぶ出題）</button>
@@ -648,7 +648,8 @@ function wrongCount(m){
   return ALLBANK.filter(x=>{ const r=m[qidOf(x)]; return r&&!r.ok; }).length;
 }
 
-let selectedCats = new Set(); // デフォルトは未選択：本を選ぶ→章を選ぶ、の順
+let activeBook = null;        // いま開いている本（本を選ぶ→章を選ぶ、の順）
+let selectedCats = new Set(); // 選択中の章（開いている本の中だけ）
 let session = null;
 let qTimer = null;
 const TSPEED = 12; // 2択スピードの制限秒
@@ -665,16 +666,27 @@ function renderStart(){
     const mast=m ? qs.filter(x=>isMastered(m,qidOf(x))).length : 0;
     const pct=total?Math.round(mast/total*100):0;
     const el=document.createElement("div");
-    el.className="chip book"+(isBookOn(b)?" on":"");
+    el.className="chip book"+(b===activeBook?" on":"");
     const title=((b==="実戦"||b==="OX") ? BOOK_LABEL[b] : "『"+BOOK_LABEL[b]+"』")+((m&&pct>=GOAL_PCT)?" 🏆":"");
     const sub=m ? (BOOK_AUTHOR[b]+"・🟢"+mast+"/"+total) : (BOOK_AUTHOR[b]+"・"+total+"問");
     el.innerHTML=title+"<br><small>"+sub+"</small>";
-    el.onclick=()=>{ toggleBook(b); renderStart(); };
+    el.onclick=()=>{
+      if(activeBook===b){ activeBook=null; selectedCats.clear(); }
+      else{
+        activeBook=b; selectedCats.clear();
+        const cs=CATS.filter(c=>c.b===b);
+        if(cs.length===1) selectedCats.add(cs[0].b+"|"+cs[0].c); // 章が1つの本は自動選択
+      }
+      renderStart();
+    };
     bc.appendChild(el);
   });
-  // カテゴリチップ（本ごとにグループ表示・章単位の🟢と🏆を表示）
+  // カテゴリチップ（開いている本の章だけを表示）
   const cc=$("catChips"); cc.innerHTML="";
-  BOOKS.forEach(b=>{
+  if(!activeBook){
+    cc.innerHTML='<div class="goal" style="margin:0 2px;">📖 上で本をタップすると、その本の章がここに出ます。</div>';
+  }
+  BOOKS.filter(b=>b===activeBook).forEach(b=>{
     const cats=CATS.filter(c=>c.b===b);
     if(!cats.length) return;
     const g=document.createElement("div"); g.className="catgroup";
@@ -700,22 +712,21 @@ function renderStart(){
   });
   updatePool();
 }
-function isBookOn(b){ return CATS.filter(c=>c.b===b).every(c=>selectedCats.has(c.b+"|"+c.c)); }
-function toggleBook(b){
-  const keys=CATS.filter(c=>c.b===b).map(c=>c.b+"|"+c.c);
-  const allOn=keys.every(k=>selectedCats.has(k));
-  keys.forEach(k=> allOn?selectedCats.delete(k):selectedCats.add(k));
-}
 function pool(){ return ALLBANK.filter(x=>selectedCats.has(x.b+"|"+x.c)); }
 function updatePool(){
   if(!profile){ $("poolInfo").textContent="👤 まず上でプレイヤーを選んでね"; $("startBtn").style.opacity=.5; return; }
   const n=pool().length;
-  if(n===0){ $("poolInfo").textContent="📚 本をタップして選ぼう（章だけ選んでもOK。🏆がまだ付いていない所がおすすめ）"; $("startBtn").style.opacity=.5; return; }
+  if(n===0){
+    $("poolInfo").textContent = activeBook
+      ? "📖 章をタップして選ぼう（🏆がまだ付いていない章がおすすめ）"
+      : "📚 本をタップして選ぼう（🏆がまだ付いていない本がおすすめ）";
+    $("startBtn").style.opacity=.5; return;
+  }
   $("poolInfo").textContent = "選択中 "+n+"問 → ぜんぶ出題（4択・○×は⭕❌で解答）";
   $("startBtn").style.opacity = 1;
 }
 
-$("selAll").onclick=()=>{ selectedCats=new Set(CATS.map(c=>c.b+"|"+c.c)); renderStart(); };
+$("selAll").onclick=()=>{ if(!activeBook) return; selectedCats=new Set(CATS.filter(c=>c.b===activeBook).map(c=>c.b+"|"+c.c)); renderStart(); };
 $("selNone").onclick=()=>{ selectedCats=new Set(); renderStart(); };
 
 /* ---- シャッフル ---- */
