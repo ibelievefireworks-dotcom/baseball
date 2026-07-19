@@ -134,7 +134,7 @@
 
     <!-- ========== START ========== -->
     <div id="start" class="card">
-      <h2 class="sec">出題範囲をえらぶ</h2>
+      <h2 class="sec">本をえらぶ</h2>
       <div class="chips" id="bookChips"></div>
       <h2 class="sec" style="margin-top:18px;">分野（章）</h2>
       <div class="chips" id="catChips"></div>
@@ -443,6 +443,8 @@ const OXBANK = [
 /* ============================================================ */
 const BOOKS = ["実戦","極意","リード術","野村ノート"];
 const BOOK_LABEL = {"実戦":"実戦シナリオ","極意":"配球の極意","リード術":"配球学・リード術","野村ノート":"野村ノート","OX":"○×"};
+const BOOK_AUTHOR = {"実戦":"各書の原則を応用","極意":"全国野球技術研究会","リード術":"野村克也・野村克則","野村ノート":"野村克也"};
+const VOICE_ENABLED = false; // 言語化モード：選択式で高得点が取れるようになったら true に
 // カテゴリ一覧（出現順）
 const CATS = [];
 BANK.forEach(x=>{ if(!CATS.some(c=>c.b===x.b&&c.c===x.c)) CATS.push({b:x.b,c:x.c}); });
@@ -463,7 +465,8 @@ function renderStart(){
     const total = BANK.filter(x=>x.b===b).length;
     const el=document.createElement("div");
     el.className="chip book"+(isBookOn(b)?" on":"");
-    el.innerHTML=BOOK_LABEL[b]+"<small>"+total+"問</small>";
+    const title = (b==="実戦") ? BOOK_LABEL[b] : "『"+BOOK_LABEL[b]+"』";
+    el.innerHTML=title+"<br><small>"+BOOK_AUTHOR[b]+"・"+total+"問</small>";
     el.onclick=()=>{ toggleBook(b); renderStart(); };
     bc.appendChild(el);
   });
@@ -727,6 +730,10 @@ $("againBtn").onclick=()=>{ $("startBtn").click(); };
 $("homeBtn").onclick=()=>{ show("start"); };
 
 /* 初期化 */
+if(!VOICE_ENABLED){
+  const vb=$("modeSeg").querySelector('[data-m="voice"]');
+  if(vb) vb.style.display="none";
+}
 renderStart();
 applyModeNote();
 </script>
