@@ -151,6 +151,7 @@
       <div class="goal" id="goalNote"></div>
       <div id="dash"></div>
       <button class="btn review hidden" id="reviewBtn"></button>
+      <button class="btn lite hidden" id="starBtn" style="font-size:15px;padding:13px;margin-top:10px;"></button>
 
       <h2 class="sec" style="margin-top:18px;">本をえらぶ</h2>
       <div class="chips" id="bookChips"></div>
@@ -531,7 +532,7 @@ const OXBANK = [
 const BOOKS = ["実戦","極意","リード術","野村ノート"];
 const BOOK_LABEL = {"実戦":"実戦シナリオ","極意":"配球の極意","リード術":"配球学・リード術","野村ノート":"野村ノート","OX":"○×"};
 const BOOK_AUTHOR = {"実戦":"各書の原則を応用","極意":"全国野球技術研究会","リード術":"野村克也・野村克則","野村ノート":"野村克也"};
-const VOICE_ENABLED = false; // 言語化モード：選択式で高得点が取れるようになったら true に
+// 言語化モードは「全冊🏆（定着80%）」を達成したプレイヤーにだけ解放される
 // カテゴリ一覧（出現順）
 const CATS = [];
 BANK.forEach(x=>{ if(!CATS.some(c=>c.b===x.b&&c.c===x.c)) CATS.push({b:x.b,c:x.c}); });
@@ -546,14 +547,26 @@ let profile = localStorage.getItem("haikyu_profile")||"";
 function mkey(){ return "haikyu_m_"+profile; }
 function loadM(){ try{ return JSON.parse(localStorage.getItem(mkey()))||{}; }catch(e){ return {}; } }
 function saveM(m){ try{ localStorage.setItem(mkey(),JSON.stringify(m)); }catch(e){} }
-function recordAnswer(qid,ok){
+function recordAnswer(qid,ok,countMastery){
   if(!profile||!qid) return;
-  const m=loadM(); const r=m[qid]||{c:0,w:0,ok:false};
-  if(ok){ r.c++; r.ok=true; } else { r.w++; r.ok=false; }
+  if(countMastery===undefined) countMastery=true;
+  const m=loadM(); const r=m[qid]||{c:0,w:0,ok:false,s:0};
+  if(r.s===undefined) r.s=(r.ok?1:0);
+  if(ok){ r.c++; r.ok=true; if(countMastery) r.s++; }
+  else { r.w++; r.ok=false; r.s=0; }
   m[qid]=r; saveM(m);
 }
 function mcId(x){ return "mc:"+hashQ(x.q); }
 function oxId(x){ return "ox:"+hashQ(x.q); }
+// 記録の状態: seen=挑戦済み / ok=直近正解 / s=連続正解数（2以上=🟢定着）
+function stOf(m,qid){
+  const r=m[qid]; if(!r) return {seen:false,ok:false,s:0};
+  const s=(r.s!==undefined)?r.s:(r.ok?1:0);
+  return {seen:true,ok:r.ok,s};
+}
+function isMastered(m,qid){ return stOf(m,qid).s>=2; }
+function isStar(m,qid){ const st=stOf(m,qid); return st.ok&&st.s===1; }
+function voiceUnlocked(){ return profile && localStorage.getItem("haikyu_voiceok_"+profile)==="1"; }
 
 function renderDash(){
   const pc=$("profChips"); pc.innerHTML="";
@@ -567,24 +580,47 @@ function renderDash(){
   const goal=$("goalNote"), d=$("dash"), rb=$("reviewBtn");
   if(!profile){
     goal.textContent="👤 だれがプレイするか選んでね（記録は別々に保存されます）";
-    d.innerHTML=""; rb.classList.add("hidden"); return;
+    d.innerHTML=""; rb.classList.add("hidden"); $("starBtn").classList.add("hidden");
+    const vb0=$("modeSeg").querySelector('[data-m="voice"]');
+    if(vb0) vb0.style.display="none";
+    return;
   }
-  goal.textContent="🎯 目標：8/2(日)までに、ぜんぶの本で"+GOAL_PCT+"%クリア（🏆）！ まちがえた問題は🔁で復習して消していこう。";
+  goal.textContent="🎯 目標：8/2(日)までに、いまある本ぜんぶで🟢定着"+GOAL_PCT+"%（🏆）！ 定着＝2回連続正解（まぐれは通用しない）。全部🏆で…🎤言語化モードが解放！";
   const m=loadM();
   const rows=BOOKS.map(b=>{
     const qs=BANK.filter(x=>x.b===b);
-    const mast=qs.filter(x=>{ const r=m[mcId(x)]; return r&&r.ok; }).length;
-    return {nm:(b==="実戦"?BOOK_LABEL[b]:"『"+BOOK_LABEL[b]+"』"), tot:qs.length, mast};
+    return {nm:(b==="実戦"?BOOK_LABEL[b]:"『"+BOOK_LABEL[b]+"』"), tot:qs.length,
+      mast:qs.filter(x=>isMastered(m,mcId(x))).length};
   });
-  rows.push({nm:"○×クイズ", tot:OXBANK.length, mast:OXBANK.filter(x=>{ const r=m[oxId(x)]; return r&&r.ok; }).length});
-  d.innerHTML=rows.map(r=>{
+  rows.push({nm:"○×クイズ", tot:OXBANK.length, mast:OXBANK.filter(x=>isMastered(m,oxId(x))).length});
+  const allIds=BANK.map(x=>mcId(x)).concat(OXBANK.map(x=>oxId(x)));
+  const nSeen=allIds.filter(id=>stOf(m,id).seen).length;
+  const nStar=allIds.filter(id=>isStar(m,id)).length;
+  const nMast=allIds.filter(id=>isMastered(m,id)).length;
+  d.innerHTML='<div class="goal" style="margin:0 2px 8px;">ぜんたい：挑戦 '+nSeen+'/'+allIds.length+'　⭐正解 '+nStar+'　🟢定着 '+nMast+'</div>'
+    + rows.map(r=>{
     const pct=r.tot?Math.round(r.mast/r.tot*100):0;
     const badge=pct>=GOAL_PCT?" 🏆":"";
     return '<div class="drow"><div class="nm">'+r.nm+badge+'</div><div class="dbarw"><i class="dbar" style="width:'+pct+'%"></i></div><div class="pc">'+r.mast+'/'+r.tot+'（'+pct+'%）</div></div>';
   }).join("");
+  // 全冊🏆 → 言語化モードを解放（一度解放されたら戻らない）
+  if(rows.every(r=>r.tot&&Math.round(r.mast/r.tot*100)>=GOAL_PCT)){
+    localStorage.setItem("haikyu_voiceok_"+profile,"1");
+  }
+  const vb=$("modeSeg").querySelector('[data-m="voice"]');
+  if(vb) vb.style.display = voiceUnlocked() ? "" : "none";
+  if(mode==="voice" && !voiceUnlocked()){
+    mode="mc";
+    $("modeSeg").querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.m==="mc"));
+    applyModeNote();
+  }
   const nWrong=wrongCount(m);
   if(nWrong>0){ rb.textContent="🔁 まちがえた問題だけ復習する（"+nWrong+"問）"; rb.classList.remove("hidden"); }
   else rb.classList.add("hidden");
+  const sb=$("starBtn");
+  const nStarBtn=BANK.filter(x=>isStar(m,mcId(x))).length + OXBANK.filter(x=>isStar(m,oxId(x))).length;
+  if(nStarBtn>0){ sb.textContent="🎯 定着チャレンジ：⭐をもう一度正解して🟢に（"+nStarBtn+"問）"; sb.classList.remove("hidden"); }
+  else sb.classList.add("hidden");
 }
 function wrongCount(m){
   return BANK.filter(x=>{ const r=m[mcId(x)]; return r&&!r.ok; }).length
@@ -668,7 +704,7 @@ function applyModeNote(){
     : mode==="voice"
     ? "言語化：問いに自分の言葉で声に出して答えてから、模範解答を見て自己採点。「言える」は「わかる」の一段上（上の分野選択は無効）。"
     : mode==="speed"
-    ? "2択スピード：1問"+TSPEED+"秒の制限つき。正解＋ダミー1つの2択で、選んだ分野から出題。"
+    ? "2択スピード：1問"+TSPEED+"秒の制限つき。反射力を鍛える腕試しモード（正解してもマスター判定には入らない。ミスは復習プールへ）。"
     : "4択：じっくり考える通常モード。選んだ分野から出題。";
 }
 $("modeSeg").querySelectorAll("button").forEach(btn=>{
@@ -739,6 +775,19 @@ $("reviewBtn").onclick=()=>{
   );
   if(!qs.length) return;
   session={qs,idx:0,score:0,answers:[],mode:"review"};
+  show("quiz"); renderQ();
+};
+
+/* ---- 定着チャレンジ（⭐→🟢） ---- */
+$("starBtn").onclick=()=>{
+  if(!profile) return;
+  const m=loadM();
+  const qs=shuffle(
+    BANK.filter(x=>isStar(m,mcId(x))).map(x=>mkMcItem(x,false))
+    .concat(OXBANK.filter(x=>isStar(m,oxId(x))).map(x=>mkOxItem(x)))
+  );
+  if(!qs.length) return;
+  session={qs,idx:0,score:0,answers:[],mode:"consolidate"};
   show("quiz"); renderQ();
 };
 
@@ -839,7 +888,8 @@ function choose(i,btn){
   });
   const ok=(i===q.ans);
   if(ok) s.score++;
-  recordAnswer(q.qid, ok);
+  // 2択スピードの正解はマスター判定に入れない（腕試し用）。ミスは復習プールへ。
+  if(!(q.speed && ok)) recordAnswer(q.qid, ok, !q.speed);
   const yourText = (i<0) ? "（時間切れ）" : q.opts[i].t;
   s.answers.push({q:q.q, your:yourText, correct:q.opts[q.ans].t, ok, e:q.e, p:q.p, book:q.b, c:q.c});
   $("scoreNow").textContent=s.score;
@@ -906,9 +956,9 @@ $("againBtn").onclick=()=>{ $("startBtn").click(); };
 $("homeBtn").onclick=()=>{ show("start"); };
 
 /* 初期化 */
-if(!VOICE_ENABLED){
+{
   const vb=$("modeSeg").querySelector('[data-m="voice"]');
-  if(vb) vb.style.display="none";
+  if(vb) vb.style.display="none"; // 解放条件はrenderDashで判定
 }
 renderStart();
 applyModeNote();
