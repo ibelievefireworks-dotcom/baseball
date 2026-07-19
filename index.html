@@ -52,6 +52,14 @@
   .catgroup:last-child{margin-bottom:0;}
   .cathead{font-size:12.5px; font-weight:800; color:var(--accent2); margin:0 0 7px 2px; display:flex; align-items:center; gap:6px;}
   .cathead::before{content:""; width:8px; height:8px; border-radius:2px; background:var(--gold);}
+  /* 進捗ダッシュボード */
+  .goal{font-size:12.5px; color:var(--muted); margin:8px 2px 10px; line-height:1.6;}
+  .drow{display:flex; align-items:center; gap:8px; font-size:12.5px; margin-bottom:7px;}
+  .drow .nm{width:9.5em; font-weight:700; line-height:1.3;}
+  .dbarw{flex:1; height:9px; background:#eef2f0; border-radius:99px; overflow:hidden;}
+  .dbar{display:block; height:100%; background:linear-gradient(90deg,var(--accent),var(--gold)); transition:width .4s;}
+  .drow .pc{width:7.5em; text-align:right; color:var(--muted); font-weight:700; font-size:11.5px;}
+  .btn.review{background:linear-gradient(135deg,#b7791f,#e8b53b); box-shadow:0 6px 16px rgba(184,121,31,.35); font-size:15px; padding:13px;}
 
   .row{display:flex; gap:8px; margin-top:8px;}
   .ghost{background:transparent;border:1.5px solid var(--line);color:var(--muted);border-radius:10px;padding:6px 10px;font-size:12px;cursor:pointer;}
@@ -138,7 +146,13 @@
 
     <!-- ========== START ========== -->
     <div id="start" class="card">
-      <h2 class="sec">本をえらぶ</h2>
+      <h2 class="sec">プレイヤーと進捗</h2>
+      <div class="chips" id="profChips"></div>
+      <div class="goal" id="goalNote"></div>
+      <div id="dash"></div>
+      <button class="btn review hidden" id="reviewBtn"></button>
+
+      <h2 class="sec" style="margin-top:18px;">本をえらぶ</h2>
       <div class="chips" id="bookChips"></div>
       <h2 class="sec" style="margin-top:18px;">分野（章）</h2>
       <div id="catChips"></div>
@@ -439,7 +453,35 @@ const BANK = [
 {b:"野村ノート",c:"野村｜球種の目的と球速",q:"ストレートの4つの目的に含まれるのは？",o:["内角のボール球で打者の壁を崩す","打者の目を慣れさせる","時間を稼ぐ","牽制の代わり"],a:0,e:"①空振りを取る ②内角のボール球で壁を崩す ③原点でストライクを取る ④フォークなど変化球を活かす。",p:"p.99-100"},
 {b:"野村ノート",c:"野村｜球種の目的と球速",q:"スライダーで左打者からカウントを稼ぐ使い方は？",o:["内角に投じてファウルを打たせる","真ん中に置く","ワンバウンドさせる","高めに浮かせる"],a:0,e:"外角ボールゾーンからストライクに入れて見逃しを取る使い方もある。",p:"p.100"},
 {b:"野村ノート",c:"野村｜球種の目的と球速",q:"一級品の変化球も「◯◯」を理解して投げないと宝の持ち腐れ。◯◯は？",o:["各球種の目的","握り方","球速","変化量"],a:0,e:"どの球種を・何のために投げるか。目的の理解が配球の土台。",p:"p.100"},
-{b:"野村ノート",c:"野村｜球種の目的と球速",q:"同じ球速表示でも打たれにくいのは？",o:["初速と終速の差が少ない球","初速だけ速い球","終速だけ速い球","差は関係ない"],a:0,e:"山本昌が130km/h台で三振を取れるのは、フォームが球を実際より速く見せるから。フォームの緩急も武器。",p:"p.98"}
+{b:"野村ノート",c:"野村｜球種の目的と球速",q:"同じ球速表示でも打たれにくいのは？",o:["初速と終速の差が少ない球","初速だけ速い球","終速だけ速い球","差は関係ない"],a:0,e:"山本昌が130km/h台で三振を取れるのは、フォームが球を実際より速く見せるから。フォームの緩急も武器。",p:"p.98"},
+
+/* ===== 野村ノート 第7章 ===== */
+// 野村｜リードの質
+{b:"野村ノート",c:"野村｜リードの質",q:"野村が挙げた「影のプレー」の例。バッテリーがすべきことは？",o:["外角へストライクからボールになる変化球を投げて相手の反応を見る","全球全力で投げ合う","真ん中で堂々勝負","目立つ牽制を多用する"],a:0,e:"1球を犠牲にする前提のチームプレー。光（気分のいいプレー）ばかり求めてはいけない。",p:"p.194-195"},
+{b:"野村ノート",c:"野村｜リードの質",q:"野村が城島のリードを「打者に読みやすい」と評した理由は？",o:["変化球が2球続けば真っ直ぐ、変化球がボールになるとすぐ真っ直ぐでストライクを取りにくるから","内角一辺倒だから","遅い球ばかりだから","サインが見えていたから"],a:0,e:"自分が同じ型に陥っていないかを点検する教材。工夫の見えるリードを。",p:"p.195"},
+{b:"野村ノート",c:"野村｜リードの質",q:"野村の野球観。野球はどんなゲーム？",o:["点を防ぐゲーム（0点に抑えれば負けない）","点取りゲーム","一発勝負のゲーム","運のゲーム"],a:0,e:"「打って勝つのが野球」と誤解すると、捕手を育てる意識が薄れる。",p:"p.195-196"},
+
+// 野村｜ID野球・データ
+{b:"野村ノート",c:"野村｜ID野球・データ",q:"ヤクルトでのデータ改革。ゾーンをいくつまで細分化した？",o:["81マス（ストライク25マス＋周囲のボールゾーン）","9マス","16マス","4マス"],a:0,e:"従来の9マスを縦横5マス＋ボールゾーンまで拡張。巻末のバッティングゾーン図の数字がこれ。",p:"p.197-198"},
+{b:"野村ノート",c:"野村｜ID野球・データ",q:"相手捕手の「配球のクセ」が出やすい場面は？",o:["大きな空振りの次の球・甘い真っ直ぐを見逃された次の球・強い引っ張りファウルの次の球","初球","満塁のとき","代打が出たとき"],a:0,e:"捕手が悩む場面では習性が出て配球が偏る。逆に自分はそこで偏らない工夫を。",p:"p.198-199"},
+{b:"野村ノート",c:"野村｜ID野球・データ",q:"データの必要性を野村は一言で何と言う？",o:["「知らないより知っていたほうがいい」","「データがすべて」","「勘より必ず当たる」","「相手への礼儀」"],a:0,e:"投げてくる球種をできるかぎり知るための努力のひとつがデータ。",p:"p.199-200"},
+{b:"野村ノート",c:"野村｜ID野球・データ",q:"バッテリー間18.44mをボールが通過する平均時間は？",o:["約0.4秒","約1秒","約0.1秒","約2秒"],a:0,e:"「来た球を打つ」技術だけでは足りない。だから予測の材料が要る。",p:"p.200"},
+{b:"野村ノート",c:"野村｜ID野球・データ",q:"「あのキャッチャーは変化球が多いぞ」と耳打ちされた打者ができる対応は？",o:["ヤマを張る・打つ方向を決める（C型の対応）","何も変わらない","見逃しが増えるだけ","バントに切り替える"],a:0,e:"ちょっとした情報が打席の意識を変える。監督が教えられるのはほんのちょっとしたこと。",p:"p.200-201"},
+{b:"野村ノート",c:"野村｜ID野球・データ",q:"野村の実践指導の3つのポイントは？",o:["ツボ・コツ・注意点","心・技・体","走・攻・守","気合・根性・忍耐"],a:0,e:"「ここを見ておけ」というツボ、技術のコツ、「これだけは注意しろ」の3点で伝える。",p:"p.201"},
+
+// 野村｜意識付けと打席の頭脳
+{b:"野村ノート",c:"野村｜意識付けと打席の頭脳",q:"「野村野球とは」を野村自身は一言で？",o:["意識付け","データ野球","根性野球","力の野球"],a:0,e:"シダックスの選手には「野村野球とは意識付けだ」と答えるよう伝えた。",p:"p.209"},
+{b:"野村ノート",c:"野村｜意識付けと打席の頭脳",q:"人間の意識のうち、無意識（潜在意識）が占める割合は？",o:["9割","5割","3割","1割"],a:0,e:"だから顕在意識＝意識付けが勝負を分ける。",p:"p.209"},
+{b:"野村ノート",c:"野村｜意識付けと打席の頭脳",q:"0-3カウント、相手投手は四球を出したくない場面。来る確率が高い球は？",o:["ストレートのストライク","ボールになる変化球","ワンバウンドのフォーク","釣り球"],a:0,e:"「打っていい0-3」。ストライクが来る×ストレートが来る、二重のバッティングチャンス。",p:"p.209-210"},
+{b:"野村ノート",c:"野村｜意識付けと打席の頭脳",q:"その0-3で野村が指導する「二段構え」とは？",o:["「ストレートのストライクだけ」「腰から曲がるスライダーのみ」と狙いを限定する","2打席分の準備をする","構えを2回変える","バントと強攻を両立する"],a:0,e:"無意識で臨むと高めのボール球に手が出て凡フライになる。顕在意識で絞る。",p:"p.210-211"},
+{b:"野村ノート",c:"野村｜意識付けと打席の頭脳",q:"打撃チャンスで求められる成功率は？",o:["8割（自信がなければ待つべき）","3割","5割","10割"],a:0,e:"ふだんは3割で一流だが、チャンスは別物。自信がないのに打ちにいく打者は流れまで敵に渡す。",p:"p.211"},
+{b:"野村ノート",c:"野村｜意識付けと打席の頭脳",q:"「打っていい0-3」のサインでも古田が見送った理由は？",o:["「必ずヒットが出るとはかぎらない」と自重も心得ていたから","サインを見落としたから","弱気だったから","監督への反抗"],a:0,e:"「いける」ときだけ積極的に出る。この自制がチームの流れを守る。",p:"p.211"},
+{b:"野村ノート",c:"野村｜意識付けと打席の頭脳",q:"野村野球の土台「備えあれば憂いなし」が意味するのは？",o:["準備重視・プロセス重視","結果重視","気合重視","運も実力のうち"],a:0,e:"準備の充実なくしていい結果は得られない。",p:"p.211"},
+
+// 野村｜チームバッティング
+{b:"野村ノート",c:"野村｜チームバッティング",q:"野村が宮本に教えた2番打者の役目。盗塁のサインが出たら？",o:["走者の好スタートなら待ち、刺されそうなら空振りやファウルで助ける","必ずバント","必ず打つ","打席を外し続ける"],a:0,e:"走者との連係もバッティングの仕事のうち。",p:"p.206-207"},
+{b:"野村ノート",c:"野村｜チームバッティング",q:"2番打者が好投手に「粘る」目的は？",o:["次の打者に配球を教え、球数を投げさせるため","自分の打率のため","時間稼ぎ","相手を苛立たせるため"],a:0,e:"出塁率・バント・走者との連係と並ぶ、野村が宮本に課した2番の役目。",p:"p.207"},
+{b:"野村ノート",c:"野村｜チームバッティング",q:"ホームランを打った宮本を野村があえて叱った理由は？",o:["ホームランは麻薬で、無意識に体が欲しがり役目が中途半端になるから","派手に喜んだから","サインを無視したから","走塁が遅かったから"],a:0,e:"中途半端は骨の髄まで腐らせる。役割に徹することが適材適所への近道。",p:"p.207-208"}
 ];
 
 /* ===== 言語化（声に出して説明）問題バンク ===== */
@@ -448,7 +490,9 @@ const VBANK = [
 {b:"野村ノート",c:"言語化",q:"配球の3つの組み立てを挙げて、それぞれ「どんなときに使うか」を説明してみよう。",model:"①打者中心＝データや観察から相手の弱点を突く。事前のミーティング（準備野球）が前提。②投手中心＝投手の力が打者にまさっているとき、自分のピッチングで勝負する。③状況中心＝点差・イニング・走者から、併殺や三振などピンチを切り抜けたい形を逆算する。この3つの使い分けが応用力。",p:"p.62-65"},
 {b:"野村ノート",c:"言語化",q:"「決断」と「判断」の違いを説明して、捕手がベンチに継投を進言するのはどちらか言ってみよう。",model:"決断は根拠に賭けて責任を取る覚悟の行為。判断は基準と根拠にもとづく頭の作業で、知識量と経験がものをいう。継投は調子・力関係・相性という基準で行う「判断」。だから捕手は投手の状態という判断材料をいちばん近くで集めて、ベンチに伝える。",p:"p.66-67"},
 {b:"野村ノート",c:"言語化",q:"なぜ左打者は体が開きやすいのか、構造から説明してみよう。",model:"野球は打ったら一塁へ走るスポーツで、左打者はスイングの一連の流れの中に一塁へのスタート動作が入っている。だから無意識にわずかに体が開き、ストライクゾーンの球なら内角でもついていける。反面、走り打ちになると当てるだけの打撃に落ちる。",p:"p.87-90"},
-{b:"野村ノート",c:"言語化",q:"「データ」と「情報」の違いを説明して、捕手が試合中にすべきことを言ってみよう。",model:"データは試合の前までに用意する観察のもと。情報は試合のなかで拾うもの。投手のクセ、打者の狙い球の絞り方、盗塁の仕草、サインへの反応など、情報はゲームのなかに落ちている。捕手はそれを最も感じ取れる位置にいるから、常に観察して情報を拾い、配球に反映させる。",p:"p.94-95"}
+{b:"野村ノート",c:"言語化",q:"「データ」と「情報」の違いを説明して、捕手が試合中にすべきことを言ってみよう。",model:"データは試合の前までに用意する観察のもと。情報は試合のなかで拾うもの。投手のクセ、打者の狙い球の絞り方、盗塁の仕草、サインへの反応など、情報はゲームのなかに落ちている。捕手はそれを最も感じ取れる位置にいるから、常に観察して情報を拾い、配球に反映させる。",p:"p.94-95"},
+{b:"野村ノート",c:"言語化",q:"なぜ野球は「点を防ぐゲーム」なのか、捕手の立場から説明してみよう。",model:"野球は0点に抑えれば絶対に負けないスポーツ。「打って勝つ」と考えると攻撃中心になるが、勝敗の土台は失点を防ぐこと。だから守りの中心である捕手の配球・観察・準備がチームの勝敗を大きく左右する。",p:"p.195-196"},
+{b:"野村ノート",c:"言語化",q:"0-3カウントが「打っていいカウント」になる理由と、二段構えのやり方を説明してみよう。",model:"投手は四球を出したくないからストライクを取りにくる。しかも置きにいくストレートの可能性が高い。ストライクが来る×球種が読める、二重のチャンス。ただし無意識に振るとボール球に手が出るので、「ストレートのストライクだけ」のように狙いを限定する二段構えで臨む。",p:"p.209-211"}
 ];
 
 /* ===== ○×（正誤）問題バンク ===== */
@@ -493,6 +537,60 @@ const CATS = [];
 BANK.forEach(x=>{ if(!CATS.some(c=>c.b===x.b&&c.c===x.c)) CATS.push({b:x.b,c:x.c}); });
 
 const $ = id=>document.getElementById(id);
+
+/* ---- プレイヤー（記録の分離）と習得記録 ---- */
+const PROFILES=["莉映","父"];
+const GOAL_PCT=80;
+function hashQ(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h+s.charCodeAt(i))|0; } return (h>>>0).toString(36); }
+let profile = localStorage.getItem("haikyu_profile")||"";
+function mkey(){ return "haikyu_m_"+profile; }
+function loadM(){ try{ return JSON.parse(localStorage.getItem(mkey()))||{}; }catch(e){ return {}; } }
+function saveM(m){ try{ localStorage.setItem(mkey(),JSON.stringify(m)); }catch(e){} }
+function recordAnswer(qid,ok){
+  if(!profile||!qid) return;
+  const m=loadM(); const r=m[qid]||{c:0,w:0,ok:false};
+  if(ok){ r.c++; r.ok=true; } else { r.w++; r.ok=false; }
+  m[qid]=r; saveM(m);
+}
+function mcId(x){ return "mc:"+hashQ(x.q); }
+function oxId(x){ return "ox:"+hashQ(x.q); }
+
+function renderDash(){
+  const pc=$("profChips"); pc.innerHTML="";
+  PROFILES.forEach(p=>{
+    const el=document.createElement("div");
+    el.className="chip book"+(p===profile?" on":"");
+    el.innerHTML="👤 "+p;
+    el.onclick=()=>{ profile=p; localStorage.setItem("haikyu_profile",p); renderStart(); };
+    pc.appendChild(el);
+  });
+  const goal=$("goalNote"), d=$("dash"), rb=$("reviewBtn");
+  if(!profile){
+    goal.textContent="👤 だれがプレイするか選んでね（記録は別々に保存されます）";
+    d.innerHTML=""; rb.classList.add("hidden"); return;
+  }
+  goal.textContent="🎯 目標：8/2(日)までに、ぜんぶの本で"+GOAL_PCT+"%クリア（🏆）！ まちがえた問題は🔁で復習して消していこう。";
+  const m=loadM();
+  const rows=BOOKS.map(b=>{
+    const qs=BANK.filter(x=>x.b===b);
+    const mast=qs.filter(x=>{ const r=m[mcId(x)]; return r&&r.ok; }).length;
+    return {nm:(b==="実戦"?BOOK_LABEL[b]:"『"+BOOK_LABEL[b]+"』"), tot:qs.length, mast};
+  });
+  rows.push({nm:"○×クイズ", tot:OXBANK.length, mast:OXBANK.filter(x=>{ const r=m[oxId(x)]; return r&&r.ok; }).length});
+  d.innerHTML=rows.map(r=>{
+    const pct=r.tot?Math.round(r.mast/r.tot*100):0;
+    const badge=pct>=GOAL_PCT?" 🏆":"";
+    return '<div class="drow"><div class="nm">'+r.nm+badge+'</div><div class="dbarw"><i class="dbar" style="width:'+pct+'%"></i></div><div class="pc">'+r.mast+'/'+r.tot+'（'+pct+'%）</div></div>';
+  }).join("");
+  const nWrong=wrongCount(m);
+  if(nWrong>0){ rb.textContent="🔁 まちがえた問題だけ復習する（"+nWrong+"問）"; rb.classList.remove("hidden"); }
+  else rb.classList.add("hidden");
+}
+function wrongCount(m){
+  return BANK.filter(x=>{ const r=m[mcId(x)]; return r&&!r.ok; }).length
+       + OXBANK.filter(x=>{ const r=m[oxId(x)]; return r&&!r.ok; }).length;
+}
+
 let selectedCats = new Set(CATS.map(c=>c.b+"|"+c.c)); // 全選択
 let numChoice = 20;
 let mode = "mc"; // mc | speed | ox
@@ -502,6 +600,7 @@ const TSPEED = 12; // 2択スピードの制限秒
 
 /* ---- 描画：開始画面 ---- */
 function renderStart(){
+  renderDash();
   // 書籍チップ
   const bc = $("bookChips"); bc.innerHTML="";
   BOOKS.forEach(b=>{
@@ -547,6 +646,7 @@ function toggleBook(b){
 function pool(){ return BANK.filter(x=>selectedCats.has(x.b+"|"+x.c)); }
 function activePool(){ return mode==="ox" ? OXBANK : mode==="voice" ? VBANK : pool(); }
 function updatePool(){
+  if(!profile){ $("poolInfo").textContent="👤 まず上でプレイヤーを選んでね"; $("startBtn").style.opacity=.5; return; }
   const n=activePool().length;
   const ask = numChoice===0? n : Math.min(numChoice,n);
   if(n===0){ $("poolInfo").textContent="⚠ 分野を1つ以上選んでください"; $("startBtn").style.opacity=.5; return; }
@@ -588,42 +688,57 @@ $("selNone").onclick=()=>{ selectedCats=new Set(); renderStart(); };
 /* ---- シャッフル ---- */
 function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 
+/* ---- 出題アイテム生成 ---- */
+function mkOxItem(x){
+  const opts=[{t:"⭕ 正しい",correct:x.t===true},{t:"❌ 誤り",correct:x.t===false}];
+  return {b:"OX",c:"正誤クイズ",q:x.q,e:x.e,p:x.p,opts,ans:(x.t?0:1),speed:false,qid:oxId(x)};
+}
+function mkMcItem(x,speed){
+  if(speed){
+    const correct={t:x.o[x.a],correct:true};
+    const others=x.o.filter((t,i)=>i!==x.a);
+    const dis={t:others[Math.floor(Math.random()*others.length)],correct:false};
+    const so=shuffle([correct,dis]);
+    return {b:x.b,c:x.c,q:x.q,e:x.e,p:x.p,opts:so,ans:so.findIndex(o=>o.correct),speed:true,qid:mcId(x)};
+  }
+  const opts=x.o.map((t,i)=>({t,correct:i===x.a}));
+  const so=shuffle(opts);
+  return {b:x.b,c:x.c,q:x.q,e:x.e,p:x.p,opts:so,ans:so.findIndex(o=>o.correct),speed:false,qid:mcId(x)};
+}
+
 /* ---- スタート ---- */
 $("startBtn").onclick=()=>{
+  if(!profile) return;
   let qs;
   if(mode==="ox"){
     let p=shuffle(OXBANK);
     if(numChoice>0) p=p.slice(0,numChoice);
-    qs=p.map(x=>{
-      const opts=[{t:"⭕ 正しい",correct:x.t===true},{t:"❌ 誤り",correct:x.t===false}];
-      return {b:"OX",c:"正誤クイズ",q:x.q,e:x.e,p:x.p,opts,ans:(x.t?0:1),speed:false};
-    });
+    qs=p.map(x=>mkOxItem(x));
   } else if(mode==="voice"){
     let p=shuffle(VBANK);
     if(numChoice>0) p=p.slice(0,numChoice);
-    qs=p.map(x=>({b:x.b,c:x.c,q:x.q,model:x.model,p:x.p,voice:true,speed:false}));
+    qs=p.map(x=>({b:x.b,c:x.c,q:x.q,model:x.model,p:x.p,voice:true,speed:false,qid:"v:"+hashQ(x.q)}));
   } else {
     let p=pool(); if(p.length===0) return;
     p=shuffle(p);
     if(numChoice>0) p=p.slice(0,numChoice);
-    if(mode==="speed"){
-      qs=p.map(x=>{
-        const correct={t:x.o[x.a],correct:true};
-        const others=x.o.filter((t,i)=>i!==x.a);
-        const dis={t:others[Math.floor(Math.random()*others.length)],correct:false};
-        const so=shuffle([correct,dis]);
-        return {b:x.b,c:x.c,q:x.q,e:x.e,p:x.p,opts:so,ans:so.findIndex(o=>o.correct),speed:true};
-      });
-    } else {
-      qs=p.map(x=>{
-        const opts=x.o.map((t,i)=>({t,correct:i===x.a}));
-        const so=shuffle(opts);
-        return {b:x.b,c:x.c,q:x.q,e:x.e,p:x.p,opts:so,ans:so.findIndex(o=>o.correct),speed:false};
-      });
-    }
+    qs=p.map(x=>mkMcItem(x,mode==="speed"));
   }
   if(!qs||qs.length===0) return;
   session={qs,idx:0,score:0,answers:[],mode};
+  show("quiz"); renderQ();
+};
+
+/* ---- 復習（まちがえた問題だけ） ---- */
+$("reviewBtn").onclick=()=>{
+  if(!profile) return;
+  const m=loadM();
+  const qs=shuffle(
+    BANK.filter(x=>{ const r=m[mcId(x)]; return r&&!r.ok; }).map(x=>mkMcItem(x,false))
+    .concat(OXBANK.filter(x=>{ const r=m[oxId(x)]; return r&&!r.ok; }).map(x=>mkOxItem(x)))
+  );
+  if(!qs.length) return;
+  session={qs,idx:0,score:0,answers:[],mode:"review"};
   show("quiz"); renderQ();
 };
 
@@ -701,6 +816,7 @@ function revealModel(btn){
 function gradeSelf(ok){
   const s=session, q=s.qs[s.idx];
   if(ok) s.score++;
+  recordAnswer(q.qid, ok);
   s.answers.push({q:q.q, your: ok?"⭕ 言えた（自己採点）":"❌ まだ（自己採点）", correct:q.model, ok, e:"", p:q.p, book:q.b, c:q.c});
   $("scoreNow").textContent=s.score;
   $("sgOk").disabled=true; $("sgNg").disabled=true;
@@ -723,6 +839,7 @@ function choose(i,btn){
   });
   const ok=(i===q.ans);
   if(ok) s.score++;
+  recordAnswer(q.qid, ok);
   const yourText = (i<0) ? "（時間切れ）" : q.opts[i].t;
   s.answers.push({q:q.q, your:yourText, correct:q.opts[q.ans].t, ok, e:q.e, p:q.p, book:q.b, c:q.c});
   $("scoreNow").textContent=s.score;
@@ -766,6 +883,10 @@ function finish(){
   else if(pct>=80){msg="お見事！正捕手級 🧤";sub="ほぼ理解できています。間違えた所だけ復習を。";}
   else if(pct>=50){msg="いい調子！あと一歩 💪";sub="苦手な章を選んで反復しよう。";}
   else {msg="ここから伸びる！🌱";sub="解説を読みながらもう一周がおすすめ。";}
+  if(profile){
+    const nWrong=wrongCount(loadM());
+    sub += nWrong>0 ? "　🔁 復習プール："+nWrong+"問" : "　🔁 復習プールはゼロ！🎉";
+  }
   $("rMsg").textContent=msg; $("rSub").textContent=sub;
   // 復習（間違いのみ）
   const wrong=s.answers.filter(a=>!a.ok);
