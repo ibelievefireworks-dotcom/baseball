@@ -48,6 +48,10 @@
   .chip.on small{color:rgba(255,255,255,.8);}
   .chip.book{border-color:var(--accent2); color:var(--accent2);}
   .chip.book.on{background:var(--accent2); color:#fff;}
+  .catgroup{margin-bottom:14px;}
+  .catgroup:last-child{margin-bottom:0;}
+  .cathead{font-size:12.5px; font-weight:800; color:var(--accent2); margin:0 0 7px 2px; display:flex; align-items:center; gap:6px;}
+  .cathead::before{content:""; width:8px; height:8px; border-radius:2px; background:var(--gold);}
 
   .row{display:flex; gap:8px; margin-top:8px;}
   .ghost{background:transparent;border:1.5px solid var(--line);color:var(--muted);border-radius:10px;padding:6px 10px;font-size:12px;cursor:pointer;}
@@ -137,7 +141,7 @@
       <h2 class="sec">本をえらぶ</h2>
       <div class="chips" id="bookChips"></div>
       <h2 class="sec" style="margin-top:18px;">分野（章）</h2>
-      <div class="chips" id="catChips"></div>
+      <div id="catChips"></div>
       <div class="row">
         <button class="ghost" id="selAll">すべて選択</button>
         <button class="ghost" id="selNone">すべて解除</button>
@@ -470,16 +474,28 @@ function renderStart(){
     el.onclick=()=>{ toggleBook(b); renderStart(); };
     bc.appendChild(el);
   });
-  // カテゴリチップ
+  // カテゴリチップ（本ごとにグループ表示）
   const cc=$("catChips"); cc.innerHTML="";
-  CATS.forEach(c=>{
-    const key=c.b+"|"+c.c;
-    const total=BANK.filter(x=>x.b===c.b&&x.c===c.c).length;
-    const el=document.createElement("div");
-    el.className="chip"+(selectedCats.has(key)?" on":"");
-    el.innerHTML="<small>["+BOOK_LABEL[c.b].slice(0,2)+"]</small> "+c.c+"<small>"+total+"</small>";
-    el.onclick=()=>{ selectedCats.has(key)?selectedCats.delete(key):selectedCats.add(key); renderStart(); };
-    cc.appendChild(el);
+  BOOKS.forEach(b=>{
+    const cats=CATS.filter(c=>c.b===b);
+    if(!cats.length) return;
+    const g=document.createElement("div"); g.className="catgroup";
+    const h=document.createElement("div"); h.className="cathead";
+    h.textContent=(b==="実戦") ? BOOK_LABEL[b] : "『"+BOOK_LABEL[b]+"』";
+    g.appendChild(h);
+    const row=document.createElement("div"); row.className="chips";
+    cats.forEach(c=>{
+      const key=c.b+"|"+c.c;
+      const total=BANK.filter(x=>x.b===c.b&&x.c===c.c).length;
+      const label=c.c.includes("｜") ? c.c.slice(c.c.indexOf("｜")+1) : c.c;
+      const el=document.createElement("div");
+      el.className="chip"+(selectedCats.has(key)?" on":"");
+      el.innerHTML=label+"<small>"+total+"</small>";
+      el.onclick=()=>{ selectedCats.has(key)?selectedCats.delete(key):selectedCats.add(key); renderStart(); };
+      row.appendChild(el);
+    });
+    g.appendChild(row);
+    cc.appendChild(g);
   });
   updatePool();
 }
