@@ -151,6 +151,9 @@
       <div class="chips" id="profChips"></div>
       <div class="goal" id="goalNote"></div>
       <div id="dash"></div>
+      <div style="text-align:right;">
+        <button id="resetBtn" class="hidden" style="border:none;background:none;color:#98a8a0;font-size:12px;text-decoration:underline;padding:4px 2px;cursor:pointer;">🗑 このプレイヤーの記録をリセット</button>
+      </div>
       <button class="btn review hidden" id="reviewBtn"></button>
       <button class="btn lite hidden" id="starBtn" style="font-size:15px;padding:13px;margin-top:10px;"></button>
       <button class="btn hidden" id="voiceBtn" style="font-size:15px;padding:13px;margin-top:10px;">🎤 言語化に挑戦（声に出して説明）</button>
@@ -970,6 +973,20 @@ try{
   });
   if(localStorage.getItem("haikyu_profile")==="父") localStorage.setItem("haikyu_profile","父上");
 }catch(e){}
+// 2026-07-20: ローンチ前テストで残った「莉映」の記録を一度だけ自動消去
+try{
+  if(!localStorage.getItem("haikyu_wipe_riei_20260720")){
+    ["haikyu_m_莉映","haikyu_b_莉映","haikyu_voiceok_莉映"].forEach(k=>localStorage.removeItem(k));
+    localStorage.setItem("haikyu_wipe_riei_20260720","1");
+  }
+}catch(e){}
+// 記録リセット（選択中プレイヤーのみ・確認つき）
+document.getElementById("resetBtn").onclick=()=>{
+  if(!profile) return;
+  if(!confirm("「"+profile+"」の記録（挑戦・制覇・直しテスト）をすべてリセットします。よろしいですか？")) return;
+  ["haikyu_m_"+profile,"haikyu_b_"+profile,"haikyu_voiceok_"+profile].forEach(k=>localStorage.removeItem(k));
+  renderStart();
+};
 const GOAL_PCT=80;
 function hashQ(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h+s.charCodeAt(i))|0; } return (h>>>0).toString(36); }
 let profile = localStorage.getItem("haikyu_profile")||"";
@@ -1043,7 +1060,7 @@ function renderDash(){
   const goal=$("goalNote"), d=$("dash"), rb=$("reviewBtn");
   if(!profile){
     goal.textContent="👤 だれがプレイするか選んでね（記録は別々に保存されます）";
-    d.innerHTML=""; rb.classList.add("hidden"); $("starBtn").classList.add("hidden"); $("voiceBtn").classList.add("hidden");
+    d.innerHTML=""; rb.classList.add("hidden"); $("starBtn").classList.add("hidden"); $("voiceBtn").classList.add("hidden"); $("resetBtn").classList.add("hidden");
     return;
   }
   goal.textContent="🎯 目標：8/2(日)までに全"+BOOKS.length+"冊を制覇！ 制覇のしかた＝①その本の全問を1回解く（正答率"+GOAL_PCT+"%以上で一次合格）→ ②間違えた問題だけの📝直しテストで"+GOAL_PCT+"%以上。おすすめは上から順！ 全冊制覇で…🎤言語化ボタンが出現！";
@@ -1072,6 +1089,7 @@ function renderDash(){
     rb.classList.remove("hidden");
   } else { rb.classList.add("hidden"); rb.dataset.book=""; }
   $("starBtn").classList.add("hidden");
+  $("resetBtn").classList.remove("hidden");
 }
 
 let activeBook = null;        // いま開いている本（本を選ぶ→章を選ぶ、の順）
