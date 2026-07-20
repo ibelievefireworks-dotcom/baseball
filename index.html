@@ -1313,7 +1313,7 @@ function gradeSelf(ok){
 }
 
 /* ---- 効果音（実音源＝効果音ラボ・商用無料/クレジット不要 をbase64埋め込み） ---- */
-let sndOn = localStorage.getItem("haikyu_snd")!=="0";
+let sndOn = localStorage.getItem("haikyu_snd")==="1"; // デフォルトはミュート（🔊タップでON）
 function updateSndBtn(){ const b=$("sndBtn"); if(b){ b.textContent = sndOn?"🔊":"🔇"; b.style.opacity = sndOn?1:.6; } }
 $("sndBtn").onclick=()=>{ sndOn=!sndOn; localStorage.setItem("haikyu_snd", sndOn?"1":"0"); updateSndBtn(); if(sndOn) playStrike(); };
 updateSndBtn();
