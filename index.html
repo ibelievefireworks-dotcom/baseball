@@ -138,10 +138,11 @@
 <body>
 <div class="app">
   <div class="wrap">
-    <div class="brand">
+    <div class="brand" style="position:relative;">
       <div class="ball">⚾</div>
       <h1>配球クイズ</h1>
       <p>配球・捕手の名著をクイズで学ぶ</p>
+      <button id="sndBtn" style="position:absolute;top:0;right:0;border:none;background:rgba(255,255,255,.15);color:#fff;border-radius:10px;padding:8px 10px;font-size:18px;cursor:pointer;">🔊</button>
     </div>
 
     <!-- ========== START ========== -->
@@ -1303,13 +1304,76 @@ function gradeSelf(ok){
   const s=session, q=s.qs[s.idx];
   if(q.done) return;
   q.done={voice:ok};
-  if(ok) s.score++;
+  if(ok){ s.score++; playKakiin(); } else { playOut(); }
   recordAnswer(q.qid, ok);
   s.answers.push({q:q.q, your: ok?"⭕ 言えた（自己採点）":"❌ まだ（自己採点）", correct:q.model, ok, e:"", p:q.p, book:q.b, c:q.c});
   $("scoreNow").textContent=s.score;
   $("sgOk").disabled=true; $("sgNg").disabled=true;
   updateNav();
 }
+
+/* ---- 効果音（外部ファイルなしで合成） ---- */
+let sndOn = localStorage.getItem("haikyu_snd")!=="0";
+function updateSndBtn(){ const b=$("sndBtn"); if(b){ b.textContent = sndOn?"🔊":"🔇"; b.style.opacity = sndOn?1:.6; } }
+$("sndBtn").onclick=()=>{ sndOn=!sndOn; localStorage.setItem("haikyu_snd", sndOn?"1":"0"); updateSndBtn(); if(sndOn) playKakiin(); };
+updateSndBtn();
+let audioCtx=null;
+function actx(){
+  if(!audioCtx){ try{ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; } }
+  if(audioCtx && audioCtx.state==="suspended"){ try{ audioCtx.resume(); }catch(e){} }
+  return audioCtx;
+}
+// 正解：金属バットの「カキーン！」（打撃のインパクト音＋金属の高い余韻）
+function playKakiin(){
+  if(!sndOn) return; const ctx=actx(); if(!ctx) return;
+  const t0=ctx.currentTime;
+  // インパクトの「カッ」（短いノイズ）
+  const nb=ctx.createBuffer(1, Math.floor(ctx.sampleRate*0.03), ctx.sampleRate);
+  const d=nb.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);
+  const ns=ctx.createBufferSource(); ns.buffer=nb;
+  const ng=ctx.createGain(); ng.gain.setValueAtTime(0.6,t0);
+  ns.connect(ng); ng.connect(ctx.destination); ns.start(t0);
+  // 金属の「キーン」（高い倍音がゆっくり減衰・わずかに下がる）
+  [[1959,0.30],[2513,0.22],[3151,0.15],[4287,0.08]].forEach(fr=>{
+    const f=fr[0], v=fr[1];
+    const o=ctx.createOscillator(); o.type="sine";
+    o.frequency.setValueAtTime(f,t0);
+    o.frequency.exponentialRampToValueAtTime(f*0.97,t0+0.8);
+    const g=ctx.createGain();
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(v,t0+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+0.9);
+    o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0+1.0);
+  });
+}
+// 不正解：審判の「アウト！」（音声合成。使えない端末は低いブザーで代用）
+function playOut(){
+  if(!sndOn) return;
+  let spoke=false;
+  try{
+    if(window.speechSynthesis && window.SpeechSynthesisUtterance){
+      const u=new SpeechSynthesisUtterance("アウト！");
+      u.lang="ja-JP"; u.rate=1.05; u.pitch=0.55; u.volume=1;
+      const vs=speechSynthesis.getVoices();
+      const ja=vs.find(v=>v.lang&&v.lang.indexOf("ja")===0);
+      if(ja) u.voice=ja;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+      spoke=true;
+    }
+  }catch(e){}
+  if(!spoke){
+    const ctx=actx(); if(!ctx) return; const t0=ctx.currentTime;
+    const o=ctx.createOscillator(); o.type="square"; o.frequency.setValueAtTime(170,t0);
+    o.frequency.exponentialRampToValueAtTime(120,t0+0.3);
+    const g=ctx.createGain(); g.gain.setValueAtTime(0.18,t0);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+0.35);
+    o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0+0.4);
+  }
+}
+// iOSは初回タップでAudioContextを起こしておく＆音声合成の声リストを先読み
+document.addEventListener("touchstart",function once(){ actx(); try{ speechSynthesis&&speechSynthesis.getVoices(); }catch(e){} document.removeEventListener("touchstart",once); },{passive:true});
 
 /* ---- 回答 ---- */
 function choose(i,btn){
@@ -1319,7 +1383,7 @@ function choose(i,btn){
   if(q.done) return; // 解答済み（もどるで再訪中）は再回答不可
   q.done={sel:i};
   const ok=(i===q.ans);
-  if(ok) s.score++;
+  if(ok){ s.score++; playKakiin(); } else { playOut(); }
   recordAnswer(q.qid, ok); // 全履歴（参考用）
   if(s.mode==="mc") recordR1(q.b, q.qid, ok); // 通常出題の1回目だけ一次テストに記録
   const yourText = (i<0) ? "（時間切れ）" : q.opts[i].t;
