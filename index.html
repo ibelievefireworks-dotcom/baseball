@@ -1304,7 +1304,7 @@ function gradeSelf(ok){
   const s=session, q=s.qs[s.idx];
   if(q.done) return;
   q.done={voice:ok};
-  if(ok){ s.score++; playKakiin(); } else { playOut(); }
+  if(ok){ s.score++; playStrike(); } else { playOut(); }
   recordAnswer(q.qid, ok);
   s.answers.push({q:q.q, your: ok?"⭕ 言えた（自己採点）":"❌ まだ（自己採点）", correct:q.model, ok, e:"", p:q.p, book:q.b, c:q.c});
   $("scoreNow").textContent=s.score;
@@ -1315,7 +1315,7 @@ function gradeSelf(ok){
 /* ---- 効果音（外部ファイルなしで合成） ---- */
 let sndOn = localStorage.getItem("haikyu_snd")!=="0";
 function updateSndBtn(){ const b=$("sndBtn"); if(b){ b.textContent = sndOn?"🔊":"🔇"; b.style.opacity = sndOn?1:.6; } }
-$("sndBtn").onclick=()=>{ sndOn=!sndOn; localStorage.setItem("haikyu_snd", sndOn?"1":"0"); updateSndBtn(); if(sndOn) playKakiin(); };
+$("sndBtn").onclick=()=>{ sndOn=!sndOn; localStorage.setItem("haikyu_snd", sndOn?"1":"0"); updateSndBtn(); if(sndOn) playStrike(); };
 updateSndBtn();
 let audioCtx=null;
 function actx(){
@@ -1346,6 +1346,46 @@ function playKakiin(){
     g.gain.exponentialRampToValueAtTime(0.0001,t0+0.9);
     o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0+1.0);
   });
+}
+// 正解：ミットの「パンッ」＋審判の「ストライク！」コール（音声合成）
+function playStrike(){
+  if(!sndOn) return;
+  // ミットに収まる「パンッ」
+  const ctx=actx();
+  if(ctx){
+    const t0=ctx.currentTime;
+    const nb=ctx.createBuffer(1, Math.floor(ctx.sampleRate*0.05), ctx.sampleRate);
+    const d=nb.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,3);
+    const ns=ctx.createBufferSource(); ns.buffer=nb;
+    const flt=ctx.createBiquadFilter(); flt.type="lowpass"; flt.frequency.setValueAtTime(900,t0);
+    const ng=ctx.createGain(); ng.gain.setValueAtTime(0.9,t0);
+    ns.connect(flt); flt.connect(ng); ng.connect(ctx.destination); ns.start(t0);
+  }
+  let spoke=false;
+  try{
+    if(window.speechSynthesis && window.SpeechSynthesisUtterance){
+      const u=new SpeechSynthesisUtterance("ストライーク！");
+      u.lang="ja-JP"; u.rate=1.0; u.pitch=0.6; u.volume=1;
+      const vs=speechSynthesis.getVoices();
+      const ja=vs.find(v=>v.lang&&v.lang.indexOf("ja")===0);
+      if(ja) u.voice=ja;
+      speechSynthesis.cancel();
+      setTimeout(()=>{ try{ speechSynthesis.speak(u); }catch(e){} },120); // パンッの直後にコール
+      spoke=true;
+    }
+  }catch(e){}
+  if(!spoke && ctx){ // 音声合成が使えない端末は明るいチャイムで代用
+    const t0=ctx.currentTime+0.08;
+    [[1318,0],[1760,0.09]].forEach(fd=>{
+      const o=ctx.createOscillator(); o.type="sine"; o.frequency.setValueAtTime(fd[0],t0+fd[1]);
+      const g=ctx.createGain();
+      g.gain.setValueAtTime(0.0001,t0+fd[1]);
+      g.gain.exponentialRampToValueAtTime(0.25,t0+fd[1]+0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001,t0+fd[1]+0.45);
+      o.connect(g); g.connect(ctx.destination); o.start(t0+fd[1]); o.stop(t0+fd[1]+0.5);
+    });
+  }
 }
 // 不正解：審判の「アウト！」（音声合成。使えない端末は低いブザーで代用）
 function playOut(){
@@ -1383,7 +1423,7 @@ function choose(i,btn){
   if(q.done) return; // 解答済み（もどるで再訪中）は再回答不可
   q.done={sel:i};
   const ok=(i===q.ans);
-  if(ok){ s.score++; playKakiin(); } else { playOut(); }
+  if(ok){ s.score++; playStrike(); } else { playOut(); }
   recordAnswer(q.qid, ok); // 全履歴（参考用）
   if(s.mode==="mc") recordR1(q.b, q.qid, ok); // 通常出題の1回目だけ一次テストに記録
   const yourText = (i<0) ? "（時間切れ）" : q.opts[i].t;
