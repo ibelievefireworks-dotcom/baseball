@@ -958,7 +958,18 @@ ALLBANK.forEach(x=>{ if(!CATS.some(c=>c.b===x.b&&c.c===x.c)) CATS.push({b:x.b,c:
 const $ = id=>document.getElementById(id);
 
 /* ---- プレイヤー（記録の分離）と習得記録 ---- */
-const PROFILES=["莉映","父"];
+const PROFILES=["莉映","父上","母上"];
+// 旧プロフィール「父」の記録は「父上」へ自動引っ越し
+try{
+  ["m","b","voiceok"].forEach(k=>{
+    const o=localStorage.getItem("haikyu_"+k+"_父");
+    if(o!==null && localStorage.getItem("haikyu_"+k+"_父上")===null){
+      localStorage.setItem("haikyu_"+k+"_父上",o);
+      localStorage.removeItem("haikyu_"+k+"_父");
+    }
+  });
+  if(localStorage.getItem("haikyu_profile")==="父") localStorage.setItem("haikyu_profile","父上");
+}catch(e){}
 const GOAL_PCT=80;
 function hashQ(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h+s.charCodeAt(i))|0; } return (h>>>0).toString(36); }
 let profile = localStorage.getItem("haikyu_profile")||"";
