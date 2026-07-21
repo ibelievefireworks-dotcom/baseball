@@ -994,14 +994,25 @@ document.getElementById("resetBtn").onclick=()=>{
    相手の端末に保存され、ダッシュボードに「ライバルの進捗」として常時表示される。 */
 function loadPeers(){ try{ return JSON.parse(localStorage.getItem("haikyu_peers"))||{}; }catch(e){ return {}; } }
 function savePeers(p){ try{ localStorage.setItem("haikyu_peers",JSON.stringify(p)); }catch(e){} }
+// 章が「消化済み」＝その章の全問をこの周で解答済み（本が制覇/直し待ちなら全章消化扱い）
+function chapterDoneCount(st,b){
+  const cats=CATS.filter(c=>c.b===b);
+  if(st.cleared||st.wrongs) return cats.length;
+  let n=0;
+  cats.forEach(c=>{
+    const qs=ALLBANK.filter(x=>x.b===c.b&&x.c===c.c);
+    if(qs.length>0 && qs.every(x=>st.r1[qidOf(x)]!==undefined)) n++;
+  });
+  return n;
+}
 function buildShareURL(){
   const B=loadB();
   const arr=BOOKS.map(b=>{
     const st=bookState(B,b); const pr=r1Progress(st,b);
     const code=st.cleared?2:(st.wrongs?1:0);
-    return [code, pr.done, st.wrongs?st.wrongs.length:0];
+    return [code, pr.done, st.wrongs?st.wrongs.length:0, chapterDoneCount(st,b)];
   });
-  const payload={v:1,n:profile,t:Date.now(),k:arr};
+  const payload={v:2,n:profile,t:Date.now(),k:arr};
   const s=btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   return location.origin+location.pathname+"#s="+s;
 }
@@ -1010,7 +1021,9 @@ document.getElementById("shareBtn").onclick=()=>{
   const url=buildShareURL();
   const B=loadB();
   const nClear=BOOKS.filter(b=>bookState(B,b).cleared).length;
-  const text="⚾配球クイズ｜"+profile+"の進捗：制覇 "+nClear+"/"+BOOKS.length+"冊！ このリンクを開くと最新の進捗が見られるよ→";
+  let nAns=0,nChDone=0;
+  BOOKS.forEach(b=>{ const st=bookState(B,b); nAns+=r1Progress(st,b).done; nChDone+=chapterDoneCount(st,b); });
+  const text="⚾配球クイズ｜"+profile+"の進捗：解答 "+nAns+"/"+ALLBANK.length+"問・章クリア "+nChDone+"/"+CATS.length+"・制覇 "+nClear+"/"+BOOKS.length+"冊！ リンクを開くと最新の進捗が見られるよ→";
   if(navigator.share){ navigator.share({text:text, url:url}).catch(()=>{}); return; }
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(text+" "+url)
@@ -1026,7 +1039,7 @@ document.getElementById("shareBtn").onclick=()=>{
     const m=location.hash.match(/#s=([A-Za-z0-9+/=]+)/);
     if(!m) return;
     const payload=JSON.parse(decodeURIComponent(escape(atob(m[1]))));
-    if(!(payload&&payload.v===1&&payload.n&&Array.isArray(payload.k))) return;
+    if(!(payload&&(payload.v===1||payload.v===2)&&payload.n&&Array.isArray(payload.k))) return;
     const peers=loadPeers();
     if(!peers[payload.n] || peers[payload.n].t<payload.t){
       peers[payload.n]=payload; savePeers(peers);
@@ -1044,20 +1057,23 @@ function peersHtml(){
     const p=peers[n];
     const dt=new Date(p.t);
     const when=(dt.getMonth()+1)+"/"+dt.getDate()+" "+dt.getHours()+":"+("0"+dt.getMinutes()).slice(-2);
-    let nClear=0;
+    let nClear=0,nAns=0,nChDone=0;
     const rows=BOOKS.map((b,i)=>{
-      const k=p.k[i]||[0,0,0];
+      const k=p.k[i]||[0,0,0,0];
       const total=bookQs(b).length;
+      const chTot=CATS.filter(c=>c.b===b).length;
+      const chDone=(k.length>3)?k[3]:0;
+      nAns+=k[1]; nChDone+=(k[0]>0?chTot:chDone);
       let stat,pct;
       if(k[0]===2){ stat="🏆 制覇！"; pct=100; nClear++; }
       else if(k[0]===1){ stat="📝 直し待ち（"+k[2]+"問）"; pct=90; }
-      else if(k[1]>0){ stat="挑戦中 "+k[1]+"/"+total; pct=Math.round(k[1]/total*85); }
+      else if(k[1]>0){ stat="挑戦中 "+k[1]+"/"+total+"<br><small>章 "+chDone+"/"+chTot+"済</small>"; pct=Math.round(k[1]/total*85); }
       else { stat="未挑戦"; pct=0; }
       const nm=(b==="実戦")?BOOK_LABEL[b]:"『"+BOOK_LABEL[b]+"』";
       return '<div class="drow"><div class="nm">'+nm+'</div><div class="dbarw"><i class="dbar" style="width:'+pct+'%"></i></div><div class="pc">'+stat+'</div></div>';
     }).join("");
     return '<div style="margin-top:14px;padding:10px;border:2px dashed var(--line,#cdd);border-radius:12px;">'
-      +'<div class="goal" style="margin:0 2px 8px;">🔥 ライバル「'+n+'」：制覇 '+nClear+'/'+BOOKS.length+'冊 <small>（'+when+' 受信）</small></div>'
+      +'<div class="goal" style="margin:0 2px 8px;">🔥 ライバル「'+n+'」：解答 '+nAns+'/'+ALLBANK.length+'問・章クリア '+nChDone+'/'+CATS.length+'・制覇 '+nClear+'/'+BOOKS.length+'冊 <small>（'+when+' 受信）</small></div>'
       +rows+'</div>';
   }).join("");
 }
@@ -1145,7 +1161,7 @@ function renderDash(){
     let stat,pct;
     if(st.cleared){ stat="🏆 制覇！"; pct=100; nClear++; }
     else if(st.wrongs){ stat="📝 直しテスト待ち（"+st.wrongs.length+"問）"; pct=90; }
-    else if(pr.done>0){ stat="挑戦中 "+pr.done+"/"+pr.total; pct=Math.round(pr.done/pr.total*85); }
+    else if(pr.done>0){ stat="挑戦中 "+pr.done+"/"+pr.total+"<br><small>章 "+chapterDoneCount(st,b)+"/"+CATS.filter(c=>c.b===b).length+"済</small>"; pct=Math.round(pr.done/pr.total*85); }
     else { stat="未挑戦（"+pr.total+"問）"; pct=0; }
     const nm=(b==="実戦")?BOOK_LABEL[b]:"『"+BOOK_LABEL[b]+"』";
     return '<div class="drow"><div class="nm">'+nm+'</div><div class="dbarw"><i class="dbar" style="width:'+pct+'%"></i></div><div class="pc">'+stat+'</div></div>';
