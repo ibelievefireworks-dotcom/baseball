@@ -151,6 +151,7 @@
       <div class="chips" id="profChips"></div>
       <div class="goal" id="goalNote"></div>
       <div id="dash"></div>
+      <button id="shareBtn" class="btn lite hidden" style="font-size:14px;padding:11px;margin-top:8px;">📤 じぶんの進捗をLINEで送る（対戦相手に見せる）</button>
       <div style="text-align:right;">
         <button id="resetBtn" class="hidden" style="border:none;background:none;color:#98a8a0;font-size:12px;text-decoration:underline;padding:4px 2px;cursor:pointer;">🗑 このプレイヤーの記録をリセット</button>
       </div>
@@ -987,6 +988,79 @@ document.getElementById("resetBtn").onclick=()=>{
   ["haikyu_m_"+profile,"haikyu_b_"+profile,"haikyu_voiceok_"+profile].forEach(k=>localStorage.removeItem(k));
   renderStart();
 };
+
+/* ---- 進捗の共有（対戦用・サーバー不要） ----
+   自分の進捗をURLに埋め込んでLINEで送る→相手がリンクを開くと
+   相手の端末に保存され、ダッシュボードに「ライバルの進捗」として常時表示される。 */
+function loadPeers(){ try{ return JSON.parse(localStorage.getItem("haikyu_peers"))||{}; }catch(e){ return {}; } }
+function savePeers(p){ try{ localStorage.setItem("haikyu_peers",JSON.stringify(p)); }catch(e){} }
+function buildShareURL(){
+  const B=loadB();
+  const arr=BOOKS.map(b=>{
+    const st=bookState(B,b); const pr=r1Progress(st,b);
+    const code=st.cleared?2:(st.wrongs?1:0);
+    return [code, pr.done, st.wrongs?st.wrongs.length:0];
+  });
+  const payload={v:1,n:profile,t:Date.now(),k:arr};
+  const s=btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  return location.origin+location.pathname+"#s="+s;
+}
+document.getElementById("shareBtn").onclick=()=>{
+  if(!profile) return;
+  const url=buildShareURL();
+  const B=loadB();
+  const nClear=BOOKS.filter(b=>bookState(B,b).cleared).length;
+  const text="⚾配球クイズ｜"+profile+"の進捗：制覇 "+nClear+"/"+BOOKS.length+"冊！ このリンクを開くと最新の進捗が見られるよ→";
+  if(navigator.share){ navigator.share({text:text, url:url}).catch(()=>{}); return; }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text+" "+url)
+      .then(()=>alert("進捗リンクをコピーしました！ LINEに貼り付けて送ってね"))
+      .catch(()=>prompt("このリンクをコピーしてLINEで送ってね", text+" "+url));
+  } else {
+    prompt("このリンクをコピーしてLINEで送ってね", text+" "+url);
+  }
+};
+// 受信：URLの #s=... を取り込んで保存（新しいものだけ）
+(function importShared(){
+  try{
+    const m=location.hash.match(/#s=([A-Za-z0-9+/=]+)/);
+    if(!m) return;
+    const payload=JSON.parse(decodeURIComponent(escape(atob(m[1]))));
+    if(!(payload&&payload.v===1&&payload.n&&Array.isArray(payload.k))) return;
+    const peers=loadPeers();
+    if(!peers[payload.n] || peers[payload.n].t<payload.t){
+      peers[payload.n]=payload; savePeers(peers);
+      setTimeout(()=>alert("📥 「"+payload.n+"」の進捗を受け取りました！ ダッシュボードに表示されます"),300);
+    }
+    history.replaceState(null,"",location.pathname+location.search);
+  }catch(e){}
+})();
+// ライバル進捗のHTML（自分以外の受信済みプレイヤー）
+function peersHtml(){
+  const peers=loadPeers();
+  const names=Object.keys(peers).filter(n=>n!==profile);
+  if(!names.length) return "";
+  return names.map(n=>{
+    const p=peers[n];
+    const dt=new Date(p.t);
+    const when=(dt.getMonth()+1)+"/"+dt.getDate()+" "+dt.getHours()+":"+("0"+dt.getMinutes()).slice(-2);
+    let nClear=0;
+    const rows=BOOKS.map((b,i)=>{
+      const k=p.k[i]||[0,0,0];
+      const total=bookQs(b).length;
+      let stat,pct;
+      if(k[0]===2){ stat="🏆 制覇！"; pct=100; nClear++; }
+      else if(k[0]===1){ stat="📝 直し待ち（"+k[2]+"問）"; pct=90; }
+      else if(k[1]>0){ stat="挑戦中 "+k[1]+"/"+total; pct=Math.round(k[1]/total*85); }
+      else { stat="未挑戦"; pct=0; }
+      const nm=(b==="実戦")?BOOK_LABEL[b]:"『"+BOOK_LABEL[b]+"』";
+      return '<div class="drow"><div class="nm">'+nm+'</div><div class="dbarw"><i class="dbar" style="width:'+pct+'%"></i></div><div class="pc">'+stat+'</div></div>';
+    }).join("");
+    return '<div style="margin-top:14px;padding:10px;border:2px dashed var(--line,#cdd);border-radius:12px;">'
+      +'<div class="goal" style="margin:0 2px 8px;">🔥 ライバル「'+n+'」：制覇 '+nClear+'/'+BOOKS.length+'冊 <small>（'+when+' 受信）</small></div>'
+      +rows+'</div>';
+  }).join("");
+}
 const GOAL_PCT=80;
 function hashQ(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h+s.charCodeAt(i))|0; } return (h>>>0).toString(36); }
 let profile = localStorage.getItem("haikyu_profile")||"";
@@ -1060,7 +1134,7 @@ function renderDash(){
   const goal=$("goalNote"), d=$("dash"), rb=$("reviewBtn");
   if(!profile){
     goal.textContent="👤 だれがプレイするか選んでね（記録は別々に保存されます）";
-    d.innerHTML=""; rb.classList.add("hidden"); $("starBtn").classList.add("hidden"); $("voiceBtn").classList.add("hidden"); $("resetBtn").classList.add("hidden");
+    d.innerHTML=""; rb.classList.add("hidden"); $("starBtn").classList.add("hidden"); $("voiceBtn").classList.add("hidden"); $("resetBtn").classList.add("hidden"); $("shareBtn").classList.add("hidden");
     return;
   }
   goal.textContent="🎯 目標：8/2(日)までに全"+BOOKS.length+"冊を制覇！ 制覇のしかた＝①その本の全問を1回解く（正答率"+GOAL_PCT+"%以上で一次合格）→ ②間違えた問題だけの📝直しテストで"+GOAL_PCT+"%以上。おすすめは上から順！ 全冊制覇で…🎤言語化ボタンが出現！";
@@ -1076,7 +1150,7 @@ function renderDash(){
     const nm=(b==="実戦")?BOOK_LABEL[b]:"『"+BOOK_LABEL[b]+"』";
     return '<div class="drow"><div class="nm">'+nm+'</div><div class="dbarw"><i class="dbar" style="width:'+pct+'%"></i></div><div class="pc">'+stat+'</div></div>';
   }).join("");
-  d.innerHTML='<div class="goal" style="margin:0 2px 8px;">制覇 '+nClear+'/'+BOOKS.length+'冊</div>'+rowsHtml;
+  d.innerHTML='<div class="goal" style="margin:0 2px 8px;">制覇 '+nClear+'/'+BOOKS.length+'冊</div>'+rowsHtml+peersHtml();
   // 全冊制覇 → 言語化ボタンを解放（一度解放されたら戻らない）
   if(nClear===BOOKS.length){ localStorage.setItem("haikyu_voiceok_"+profile,"1"); }
   $("voiceBtn").classList.toggle("hidden", !voiceUnlocked());
@@ -1090,6 +1164,7 @@ function renderDash(){
   } else { rb.classList.add("hidden"); rb.dataset.book=""; }
   $("starBtn").classList.add("hidden");
   $("resetBtn").classList.remove("hidden");
+  $("shareBtn").classList.remove("hidden");
 }
 
 let activeBook = null;        // いま開いている本（本を選ぶ→章を選ぶ、の順）
