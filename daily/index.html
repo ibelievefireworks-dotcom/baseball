@@ -153,6 +153,7 @@
     <div class="goal" id="todayCard" style="margin-top:10px;line-height:1.8;"></div>
     <button class="btn hidden" id="startBtn">▶</button>
     <button class="btn lite hidden" id="shareTop" style="font-size:14px;padding:11px;">📤 今日の結果をLINEで送る</button>
+    <button class="btn lite hidden" id="redoBtn" style="font-size:14px;padding:11px;">🔁 もう一度やる（自己ベスト更新に挑戦）</button>
     <h2 class="sec" style="margin-top:18px;">カレンダー</h2>
     <div id="calGrid" class="calgrid"></div>
     <div class="goal" style="margin-top:10px;">ルール：その日の問題は3人とも同じ。間違えた問題は<b>正解するまで再出題</b>（それが本日クリアの条件）。記録される得点は1周目のもの。前の日の問題はもう解けません。</div>
@@ -1034,6 +1035,18 @@ function streak(){ const L=log(); let d=Math.min(DAY,LASTDAY); if(!L[d]) d--; le
 function fmtSec(s){ const m=Math.floor(s/60); return m+"分"+("0"+(s%60)).slice(-2)+"秒"; }
 /* ==== セッション（1周目 → 間違い直しループ） ==== */
 let S=null;
+function redoDay(){
+  // 何度でもやり直しOK：今日の途中経過だけ消し、ベスト記録は finishDay で判定して残す
+  if(!profile||DAY<1||DAY>LASTDAY) return;
+  if(!log()[DAY]) return; // 未クリアなら通常スタート
+  delCur();
+  const qs=daySet(DAY); if(!qs.length) return;
+  const c={day:DAY,first:{},fixed:{},start:Date.now()};
+  saveCur(c);
+  S={qs:qs,c:c,queue:[],pos:0,phase:1};
+  if(!rebuild()){ finishDay(); return; }
+  show("quiz"); renderQ();
+}
 function startDay(){
   if(!profile||DAY<1||DAY>LASTDAY) return;
   if(log()[DAY]) return;
@@ -1100,12 +1113,18 @@ function finishDay(){
   const c=S.c, total=S.qs.length;
   let sc=0; S.qs.forEach(x=>{ if(c.first[qidOf(x)]===1) sc++; });
   const sec=Math.max(1,Math.round((Date.now()-c.start)/1000));
-  const L=log(); L[c.day]={s:sc,t:total,sec:sec}; saveLog(L); delCur();
+  const L=log(); const prev=L[c.day];
+  // 何度でもやり直しOK：記録は自己ベスト（得点が高い方、同点なら速い方）を残す
+  const isBest = !prev || sc>prev.s || (sc===prev.s && sec<prev.sec);
+  if(isBest){ L[c.day]={s:sc,t:total,sec:sec}; saveLog(L); }
+  delCur();
   const pct=Math.round(sc/total*100);
   $("rTitle").textContent=(c.day===LASTDAY?"🎓 卒業検定 ":"第"+c.day+"日 ")+"クリア！🎉";
   $("rScore").textContent=sc+" / "+total+"（"+pct+"%）";
-  $("rTime").textContent="⏱ "+fmtSec(sec)+"　🔁 直しも全問正解";
-  $("rMsg").textContent = pct===100?"1周目から満点！完璧な配球眼 ⚾👑"
+  $("rTime").textContent="⏱ "+fmtSec(sec)+(prev?(isBest?"　🎉自己ベスト更新！":"　（ベストは "+prev.s+"/"+prev.t+" 継続）"):"　🔁 直しも全問正解");
+  $("rMsg").textContent = (prev&&isBest)?"やり直して記録更新！ねばりが本物だ 🔥"
+    : (prev&&!isBest)?"惜しい！ベストは崩れず。また挑戦できるよ 💪"
+    : pct===100?"1周目から満点！完璧な配球眼 ⚾👑"
     : pct>=80?"合格ライン超え！ナイスリード 🧤"
     : pct>=60?"直しで全部取り返したのがえらい 💪"
     : "解説を読んだ分だけ明日強くなる 🌱";
@@ -1122,7 +1141,7 @@ function renderStart(){
     pc.appendChild(el);
   });
   const t=$("todayCard"), btn=$("startBtn");
-  btn.classList.add("hidden"); $("shareTop").classList.add("hidden");
+  btn.classList.add("hidden"); $("shareTop").classList.add("hidden"); $("redoBtn").classList.add("hidden");
   if(!profile){ t.innerHTML="👤 だれがプレイするか選んでね（記録は別々）"; }
   else if(DAY<1){ t.innerHTML="⚾ 9/5開幕！ おたのしみに"; }
   else if(DAY>LASTDAY){ t.innerHTML="🎉 9月チャレンジは終了しました。27日間おつかれさま！"; }
@@ -1132,8 +1151,9 @@ function renderStart(){
     const head="📅 <b>"+dateStr+"（第"+DAY+"日）</b>　"+dayTitle(DAY)+"　全"+qs.length+"問";
     if(L[DAY]){
       const r=L[DAY];
-      t.innerHTML=head+"<br><b>✅ 本日クリア！ "+r.s+"/"+r.t+"（"+fmtSec(r.sec)+"）</b>　🔥連続"+streak()+"日";
+      t.innerHTML=head+"<br><b>✅ 本日クリア！ ベスト "+r.s+"/"+r.t+"（"+fmtSec(r.sec)+"）</b>　🔥連続"+streak()+"日";
       $("shareTop").classList.remove("hidden");
+      $("redoBtn").classList.remove("hidden");
     } else {
       const c=cur(); const resumed=c&&c.day===DAY; const doneN=resumed?Object.keys(c.first).length:0;
       t.innerHTML=head+(streak()>0?"　🔥連続"+streak()+"日中":"");
@@ -1166,6 +1186,7 @@ function doShare(){
 $("shareTop").onclick=doShare;
 $("shareBtn2").onclick=doShare;
 $("startBtn").onclick=startDay;
+$("redoBtn").onclick=()=>{ if(confirm("もう一度この日の全問に挑戦します。得点は自己ベスト（高い方）が残ります。始めますか？")) redoDay(); };
 $("quitBtn").onclick=()=>{ if(confirm("中断しますか？（ここまでの解答は保存され、つづきから再開できます）")){ show("start"); renderStart(); } };
 $("homeBtn").onclick=()=>{ show("start"); renderStart(); };
 function show(w){ ["start","quiz","result"].forEach(id=>$(id).classList.toggle("hidden",id!==w)); window.scrollTo(0,0); }
