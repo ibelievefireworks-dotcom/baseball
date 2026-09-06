@@ -173,7 +173,7 @@
     <div id="rScore" style="font-size:36px;font-weight:900;margin:8px 0;color:#1f9d55;"></div>
     <div id="rTime" class="goal"></div>
     <div id="rMsg" style="margin:12px 0;font-weight:700;"></div>
-    <button class="btn" id="shareBtn2">📤 結果をLINEで送る</button>
+    <button class="btn" id="shareBtn2">🎉 達成をLINEで家族に送る</button>
     <button class="btn lite" id="homeBtn" style="margin-top:8px;">カレンダーへもどる</button>
   </div>
 </div></div>
@@ -1129,6 +1129,8 @@ function finishDay(){
     : pct>=60?"直しで全部取り返したのがえらい 💪"
     : "解説を読んだ分だけ明日強くなる 🌱";
   show("result");
+  // 達成通知（折衷版）：初クリア／自己ベスト更新のときだけ、スマホでLINE共有を自動で開く
+  if((!prev||isBest) && navigator.share){ try{ doShare(); }catch(e){} }
 }
 /* ==== 開始画面・カレンダー ==== */
 function renderStart(){
@@ -1177,7 +1179,7 @@ function renderCal(){
 /* ==== 共有・画面制御 ==== */
 function doShare(){
   const L=log(), r=L[DAY]; if(!r) return;
-  const txt="⚾日替わり配球クイズ 第"+DAY+"日｜"+profile+"："+r.s+"/"+r.t+"（"+fmtSec(r.sec)+"・直し完了✅）🔥連続"+streak()+"日 "+location.origin+location.pathname;
+  const txt="🎉達成！日替わり配球クイズ 第"+DAY+"日｜"+profile+"："+r.s+"/"+r.t+"（"+fmtSec(r.sec)+"・直し完了✅）🔥連続"+streak()+"日 "+location.origin+location.pathname;
   if(navigator.share){ navigator.share({text:txt}).catch(function(){}); return; }
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(txt).then(function(){ alert("結果をコピーしました！LINEに貼り付けてね"); }).catch(function(){ prompt("コピーしてLINEで送ってね",txt); });
