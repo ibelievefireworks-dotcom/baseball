@@ -50,9 +50,7 @@
   .qtitle{font-size:18px; font-weight:800; line-height:1.4; margin:2px 0 10px;}
   .qscene{font-size:15.5px; line-height:1.7; background:#f6faf8; border:1px solid var(--line); border-left:5px solid var(--gold); border-radius:10px; padding:12px 14px; margin:4px 0 12px;}
   .qask{font-size:16.5px; font-weight:800; margin:4px 0 10px; color:var(--accent2); line-height:1.5;}
-  .ta{width:100%; min-height:96px; border:2px solid var(--line); border-radius:12px; padding:12px; font-size:15px; line-height:1.6; font-family:inherit; resize:vertical; color:var(--ink);}
-  .ta:focus{outline:none; border-color:var(--accent);}
-  .ta:disabled{background:#f4f7f5; color:#4a5a55;}
+  .thinkhint{background:#eef5f1; border:1px dashed #9cc3b0; border-radius:12px; padding:14px; font-size:14.5px; line-height:1.7; color:var(--accent2); text-align:center; font-weight:600;}
   .explain{margin-top:14px; background:#f6faf8; border:1px solid var(--line); border-left:5px solid var(--accent); border-radius:10px; padding:12px 14px; font-size:14px; line-height:1.7; display:none;}
   .explain.show{display:block; animation:fade .25s;}
   .explain b{color:var(--accent2);}
@@ -82,7 +80,7 @@
     <div class="goal" id="todayCard" style="margin-top:12px;"></div>
     <button class="btn hidden" id="startBtn">▶</button>
     <button class="btn lite hidden" id="shareTop" style="font-size:14px;padding:11px;">📤 今日の答えを父上にLINEで送る</button>
-    <div class="goal" style="margin-top:14px;">やり方：試合の場面を読んで、<b>自分ならどう配球するか・なぜか</b>を書く → 「模範の考え方」と見比べる。正解は一つじゃない。根拠を言葉にできたら勝ち。<br>毎日：<b>新規2＋前日の復習2＝4場面</b>。</div>
+    <div class="goal" style="margin-top:14px;">やり方：試合の場面を読んで、<b>自分ならどう配球するか・なぜか</b>を頭の中で組み立てる（口に出せたらベスト）→ ボタンで「模範の考え方」と答え合わせ。入力はナシ。正解は一つじゃない、根拠を持てたら勝ち。<br>毎日：<b>新規2＋前日の復習2＝4場面</b>。</div>
     <div style="text-align:center;margin-top:12px;"><a href="../" style="color:#8aa094;font-size:12px;">📚 配球クイズ（選択式）へ</a></div>
   </div>
 
@@ -93,10 +91,9 @@
     <div class="qtitle" id="qtitle"></div>
     <div class="qscene" id="qscene"></div>
     <div class="qask" id="qask"></div>
-    <textarea class="ta" id="ta" placeholder="自分ならどう配球する？ なぜそうする？ 思ったことを書いてみよう。"></textarea>
-    <div class="prevans hidden" id="prevWrap"></div>
+    <div class="thinkhint" id="thinkhint">💭 頭の中で「どう配球する？ なぜ？」を組み立てよう。<br>口に出して言えたらベスト。決まったら↓で答え合わせ。</div>
     <div class="explain" id="explain"></div>
-    <button class="btn" id="revealBtn">書けたら → 模範と見比べる</button>
+    <button class="btn" id="revealBtn">考えた！ 模範の考え方を見る</button>
     <button class="btn hidden" id="nextBtn">次へ ▶</button>
   </div>
 
@@ -176,13 +173,10 @@ if(PROFILES.indexOf(profile)<0) profile="";
 function loadJ(k,def){ try{ const v=JSON.parse(localStorage.getItem(k)); return (v===null||v===undefined)?def:v; }catch(e){ return def; } }
 function log(){ return loadJ("scene_log_"+profile,{}); }
 function saveLog(o){ try{ localStorage.setItem("scene_log_"+profile,JSON.stringify(o)); }catch(e){} }
-function ansAll(){ return loadJ("scene_ans_"+profile,{}); }
-function saveAns(o){ try{ localStorage.setItem("scene_ans_"+profile,JSON.stringify(o)); }catch(e){} }
 function cur(){ return loadJ("scene_cur_"+profile,null); }
 function saveCur(o){ try{ localStorage.setItem("scene_cur_"+profile,JSON.stringify(o)); }catch(e){} }
 function delCur(){ try{ localStorage.removeItem("scene_cur_"+profile); }catch(e){} }
 function streak(){ const L=log(); let d=DAY; if(!L[d]) d--; let n=0; while(d>=1&&L[d]){ n++; d--; } return n; }
-function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>"); }
 
 /* ==== セッション ==== */
 let S=null;
@@ -205,25 +199,17 @@ function renderItem(){
   $("qtitle").textContent=sc.t;
   $("qscene").textContent=sc.sc;
   $("qask").textContent=sc.q;
-  const a=ansAll(); const saved=(a[it.i]&&a[it.i][DAY])||"";
-  const ta=$("ta"); ta.value=saved; ta.disabled=false;
+  $("thinkhint").classList.remove("hidden");
   $("explain").classList.remove("show"); $("explain").innerHTML="";
-  $("prevWrap").classList.add("hidden"); $("prevWrap").innerHTML="";
   $("revealBtn").classList.remove("hidden");
   $("nextBtn").classList.add("hidden");
   window.scrollTo(0,0);
 }
 function reveal(){
-  const it=S.items[S.pos], sc=SCENES[it.i], ta=$("ta");
-  if(!ta.value.trim() && !confirm("まだ書いていないよ。先に自分の考えを書こう！ それでも模範を見る？")) return;
-  const a=ansAll(); if(!a[it.i]) a[it.i]={}; a[it.i][DAY]=ta.value.trim(); saveAns(a);
-  ta.disabled=true;
+  const it=S.items[S.pos], sc=SCENES[it.i];
+  $("thinkhint").classList.add("hidden");
   $("explain").innerHTML="<b>模範の考え方</b><br>"+sc.m+'<span class="src">出典の目安：'+sc.src+"</span>";
   $("explain").classList.add("show");
-  if(it.mode==="rev"){
-    const prev=(a[it.i]&&a[it.i][DAY-1])||"";
-    if(prev){ $("prevWrap").innerHTML="<b>昨日の自分の答え</b><br>"+esc(prev); $("prevWrap").classList.remove("hidden"); }
-  }
   $("revealBtn").classList.add("hidden");
   $("nextBtn").classList.remove("hidden");
 }
@@ -242,15 +228,17 @@ function finishDay(){
   if(navigator.share){ try{ doShare(); }catch(e){} }
 }
 
-/* ==== 共有（今日の新規の答えを父上へ） ==== */
+/* ==== 共有（今日やった場面を父上へ＝達成通知） ==== */
 function doShare(){
-  const a=ansAll(), ni=newIdxs(DAY);
-  let body="⚾今日の1場面 第"+DAY+"日｜"+profile+"（🔥連続"+streak()+"日）\n";
-  ni.forEach(i=>{ const sc=SCENES[i]; const t=(a[i]&&a[i][DAY])||"（未記入）"; body+="\n【"+sc.t+"】\n"+t+"\n"; });
+  const ni=newIdxs(DAY), ri=reviewIdxs(DAY);
+  const titles=ni.map(i=>SCENES[i].t);
+  let body="⚾今日の1場面 第"+DAY+"日 完了！｜"+profile+"（🔥連続"+streak()+"日）\n";
+  body+="今日の新規："+titles.join(" / ")+"\n";
+  body+="（＋昨日の"+ri.length+"場面を復習）\n";
   body+="\n"+location.origin+location.pathname;
   if(navigator.share){ navigator.share({text:body}).catch(function(){}); return; }
   if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(body).then(function(){ alert("今日の答えをコピーしました！LINEに貼り付けてね"); }).catch(function(){ prompt("コピーしてLINEで送ってね",body); });
+    navigator.clipboard.writeText(body).then(function(){ alert("結果をコピーしました！LINEに貼り付けてね"); }).catch(function(){ prompt("コピーしてLINEで送ってね",body); });
   } else prompt("コピーしてLINEで送ってね",body);
 }
 
