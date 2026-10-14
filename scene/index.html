@@ -94,7 +94,7 @@
   </div>
 
   <div id="quiz" class="card hidden">
-    <div class="topbar"><span id="qprog"></span><button class="quit" id="quitBtn">中断</button></div>
+    <div class="topbar"><button class="quit" id="backBtn">← もどる</button><span id="qprog"></span></div>
     <div class="pbar"><i id="pbar_i"></i></div>
     <div class="qmeta"><span id="qbadge" class="badge-new">新規</span><span class="tag" id="qtag"></span></div>
     <div class="qtitle" id="qtitle"></div>
@@ -111,8 +111,7 @@
     <div class="rmsg" id="rTitle"></div>
     <div class="rsub" id="rSub"></div>
     <div class="goal" id="rMsg" style="text-align:center;"></div>
-    <button class="btn" id="shareBtn2">📤 完了を父上にLINEで送る</button>
-    <button class="btn lite" id="homeBtn" style="margin-top:8px;">トップへもどる</button>
+    <button class="btn" id="homeBtn">トップ（日別メニュー）へもどる</button>
   </div>
 
   <div class="foot">配球に唯一の正解はない。大事なのは「根拠を持って選べたか」。<br>出典：野村ノート／工藤／落合／ほか配球本</div>
@@ -232,23 +231,8 @@ function finishDay(){
   const L=log(); L[S.day]={done:true}; saveLog(L); delCur();
   $("rTitle").textContent="第"+S.day+"日（"+dLabel(S.day)+"）完了！";
   $("rSub").textContent="達成 "+doneCount()+" / "+NDAYS+"日";
-  $("rMsg").textContent="4場面おつかれさま。答えは一つじゃない——「なぜそうするか」を自分で言えたことが力になる。";
+  $("rMsg").textContent="4場面おつかれさま。答えは一つじゃない——「なぜそうするか」を自分で言えたことが力になる。練習メニューの「配球クイズ」にチェックを入れよう。";
   show("result");
-  if(navigator.share){ try{ doShare(S.day); }catch(e){} }
-}
-
-/* ==== 共有（やった場面を父上へ＝達成通知） ==== */
-function doShare(d){
-  d=d||(S&&S.day)||0; if(!d) return;
-  const ni=newIdxs(d), ri=reviewIdxs(d);
-  const titles=ni.map(i=>SCENES[i].t);
-  let body="⚾今日の1場面 第"+d+"日（"+dLabel(d)+"）完了！｜"+profile+"（達成"+doneCount()+"/"+NDAYS+"日）\n";
-  body+="新規："+titles.join(" / ")+"\n（＋復習"+ri.length+"場面）\n";
-  body+="\n"+location.origin+location.pathname;
-  if(navigator.share){ navigator.share({text:body}).catch(function(){}); return; }
-  if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(body).then(function(){ alert("結果をコピーしました！LINEに貼り付けてね"); }).catch(function(){ prompt("コピーしてLINEで送ってね",body); });
-  } else prompt("コピーしてLINEで送ってね",body);
 }
 
 /* ==== トップ・画面制御 ==== */
@@ -276,8 +260,7 @@ function renderStart(){
     grid.appendChild(cell);
   }
 }
-$("shareBtn2").onclick=()=>doShare();
-$("quitBtn").onclick=()=>{ if(S) saveCur({day:S.day,pos:S.pos}); if(confirm("中断しますか？（ここまでは保存され、つづきから再開できます）")){ show("start"); renderStart(); } };
+$("backBtn").onclick=()=>{ if(S) saveCur({day:S.day,pos:S.pos}); show("start"); renderStart(); };
 $("homeBtn").onclick=()=>{ show("start"); renderStart(); };
 function show(w){ ["start","quiz","result"].forEach(id=>$(id).classList.toggle("hidden",id!==w)); window.scrollTo(0,0); }
 renderStart();
