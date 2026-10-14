@@ -54,6 +54,7 @@
   .daygrid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px;}
   .daybtn{border:1.5px solid var(--line); background:#fff; color:var(--ink); border-radius:12px; padding:10px 6px; cursor:pointer; font-size:14px; display:flex; flex-direction:column; align-items:center; gap:3px; transition:.12s;}
   .daybtn b{font-size:14.5px;}
+  .daybtn .dt{font-size:11px; color:var(--accent2); font-weight:700;}
   .daybtn span{font-size:11.5px; color:var(--muted);}
   .daybtn:active{transform:translateY(1px);}
   .daybtn.done{background:var(--okbg); border-color:var(--ok);}
@@ -121,6 +122,10 @@
 const $=id=>document.getElementById(id);
 const PROFILES=["莉映","父上","母上"];
 const NEWPD=2;                      // 1日の新規場面数（復習も同数）
+const START=new Date(2026,9,14);    // 第1日=2026-10-14（日付ラベル表示用。日の選択は自由）
+const WD=["日","月","火","水","木","金","土"];
+function dLabel(d){ const t=new Date(START.getTime()+(d-1)*86400000); return (t.getMonth()+1)+"/"+t.getDate()+"("+WD[t.getDay()]+")"; }
+function todayNum(){ const n=new Date(); const t0=new Date(n.getFullYear(),n.getMonth(),n.getDate()); return Math.round((t0-START)/86400000)+1; }
 
 /* ==== 場面バンク（全36・師匠は1場面ごとに固定／模範は有力な考え方） ==== */
 const SCENES=[
@@ -195,7 +200,7 @@ function startDay(d){
 }
 function renderItem(){
   const it=S.items[S.pos], sc=SCENES[it.i];
-  $("qprog").textContent="第"+S.day+"日　"+(S.pos+1)+" / "+S.items.length+"場面";
+  $("qprog").textContent="第"+S.day+"日（"+dLabel(S.day)+"）　"+(S.pos+1)+" / "+S.items.length+"場面";
   $("pbar_i").style.width=(S.pos/S.items.length*100)+"%";
   $("qbadge").className=it.mode==="new"?"badge-new":"badge-rev";
   $("qbadge").textContent=it.mode==="new"?"新規":"復習";
@@ -225,7 +230,7 @@ $("nextBtn").onclick=()=>{
 };
 function finishDay(){
   const L=log(); L[S.day]={done:true}; saveLog(L); delCur();
-  $("rTitle").textContent="第"+S.day+"日 完了！";
+  $("rTitle").textContent="第"+S.day+"日（"+dLabel(S.day)+"）完了！";
   $("rSub").textContent="達成 "+doneCount()+" / "+NDAYS+"日";
   $("rMsg").textContent="4場面おつかれさま。答えは一つじゃない——「なぜそうするか」を自分で言えたことが力になる。";
   show("result");
@@ -237,7 +242,7 @@ function doShare(d){
   d=d||(S&&S.day)||0; if(!d) return;
   const ni=newIdxs(d), ri=reviewIdxs(d);
   const titles=ni.map(i=>SCENES[i].t);
-  let body="⚾今日の1場面 第"+d+"日 完了！｜"+profile+"（達成"+doneCount()+"/"+NDAYS+"日）\n";
+  let body="⚾今日の1場面 第"+d+"日（"+dLabel(d)+"）完了！｜"+profile+"（達成"+doneCount()+"/"+NDAYS+"日）\n";
   body+="新規："+titles.join(" / ")+"\n（＋復習"+ri.length+"場面）\n";
   body+="\n"+location.origin+location.pathname;
   if(navigator.share){ navigator.share({text:body}).catch(function(){}); return; }
@@ -258,14 +263,15 @@ function renderStart(){
   });
   const t=$("todayCard"), grid=$("dayGrid");
   if(!profile){ t.innerHTML="👤 だれがやるか選んでね（記録は別々）"; grid.innerHTML=""; return; }
-  const L=log(), nx=nextUndone(), c=cur();
-  t.innerHTML="毎日ひとつ、日を選んでやろう。<b>やってない日は戻って</b>、やる気があれば<b>先に進んで</b>もOK。<br>達成 <b>"+doneCount()+" / "+NDAYS+"日</b>";
+  const L=log(), nx=nextUndone(), c=cur(), tn=todayNum();
+  const todayHint=(tn>=1&&tn<=NDAYS)?("　<b>今日＝第"+tn+"日（"+dLabel(tn)+"）</b>"):"";
+  t.innerHTML="毎日ひとつ、日を選んでやろう。<b>やってない日は戻って</b>、やる気があれば<b>先に進んで</b>もOK。<br>達成 <b>"+doneCount()+" / "+NDAYS+"日</b>"+todayHint;
   grid.innerHTML="";
   for(let d=1;d<=NDAYS;d++){
     const done=!!L[d], rec=(d===nx), resuming=(c&&c.day===d&&c.pos>0&&!done);
     const cell=document.createElement("button");
     cell.className="daybtn"+(done?" done":"")+(rec?" rec":"");
-    cell.innerHTML="<b>第"+d+"日</b><span>"+(done?"✅ 済":(resuming?"▶ 途中":(rec?"▶ ここから":"・")))+"</span>";
+    cell.innerHTML="<b>第"+d+"日</b><span class=\"dt\">"+dLabel(d)+"</span><span>"+(done?"✅ 済":(resuming?"▶ 途中":(rec?"▶ ここから":"・")))+"</span>";
     cell.onclick=()=>startDay(d);
     grid.appendChild(cell);
   }
