@@ -51,6 +51,15 @@
   .qscene{font-size:15.5px; line-height:1.7; background:#f6faf8; border:1px solid var(--line); border-left:5px solid var(--gold); border-radius:10px; padding:12px 14px; margin:4px 0 12px;}
   .qask{font-size:16.5px; font-weight:800; margin:4px 0 10px; color:var(--accent2); line-height:1.5;}
   .thinkhint{background:#eef5f1; border:1px dashed #9cc3b0; border-radius:12px; padding:14px; font-size:14.5px; line-height:1.7; color:var(--accent2); text-align:center; font-weight:600;}
+  .daygrid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px;}
+  .daybtn{border:1.5px solid var(--line); background:#fff; color:var(--ink); border-radius:12px; padding:10px 6px; cursor:pointer; font-size:14px; display:flex; flex-direction:column; align-items:center; gap:3px; transition:.12s;}
+  .daybtn b{font-size:14.5px;}
+  .daybtn span{font-size:11.5px; color:var(--muted);}
+  .daybtn:active{transform:translateY(1px);}
+  .daybtn.done{background:var(--okbg); border-color:var(--ok);}
+  .daybtn.done span{color:var(--ok); font-weight:700;}
+  .daybtn.rec{border-color:var(--accent); border-width:2.5px; box-shadow:0 4px 12px rgba(46,139,87,.25);}
+  .daybtn.rec span{color:var(--accent2); font-weight:800;}
   .explain{margin-top:14px; background:#f6faf8; border:1px solid var(--line); border-left:5px solid var(--accent); border-radius:10px; padding:12px 14px; font-size:14px; line-height:1.7; display:none;}
   .explain.show{display:block; animation:fade .25s;}
   .explain b{color:var(--accent2);}
@@ -78,9 +87,8 @@
     <h2 class="sec">プレイヤー</h2>
     <div class="chips" id="profChips"></div>
     <div class="goal" id="todayCard" style="margin-top:12px;"></div>
-    <button class="btn hidden" id="startBtn">▶</button>
-    <button class="btn lite hidden" id="shareTop" style="font-size:14px;padding:11px;">📤 今日の答えを父上にLINEで送る</button>
-    <div class="goal" style="margin-top:14px;">やり方：試合の場面を読んで、<b>自分ならどう配球するか・なぜか</b>を頭の中で組み立てる（口に出せたらベスト）→ ボタンで「模範の考え方」と答え合わせ。入力はナシ。正解は一つじゃない、根拠を持てたら勝ち。<br>毎日：<b>新規2＋前日の復習2＝4場面</b>。</div>
+    <div class="daygrid" id="dayGrid"></div>
+    <div class="goal" style="margin-top:14px;">やり方：試合の場面を読んで、<b>自分ならどう配球するか・なぜか</b>を頭の中で組み立てる（口に出せたらベスト）→ ボタンで「模範の考え方」と答え合わせ。入力はナシ。正解は一つじゃない、根拠を持てたら勝ち。<br>1日分＝<b>新規2＋前日の復習2＝4場面</b>。</div>
     <div style="text-align:center;margin-top:12px;"><a href="../" style="color:#8aa094;font-size:12px;">📚 配球クイズ（選択式）へ</a></div>
   </div>
 
@@ -102,7 +110,7 @@
     <div class="rmsg" id="rTitle"></div>
     <div class="rsub" id="rSub"></div>
     <div class="goal" id="rMsg" style="text-align:center;"></div>
-    <button class="btn" id="shareBtn2">📤 今日の答えを父上にLINEで送る</button>
+    <button class="btn" id="shareBtn2">📤 完了を父上にLINEで送る</button>
     <button class="btn lite" id="homeBtn" style="margin-top:8px;">トップへもどる</button>
   </div>
 
@@ -112,12 +120,7 @@
 <script>
 const $=id=>document.getElementById(id);
 const PROFILES=["莉映","父上","母上"];
-const START=new Date(2026,9,13);   // 2026-10-13 開幕
 const NEWPD=2;                      // 1日の新規場面数（復習も同数）
-const pd=new URLSearchParams(location.search).get("d"); // テスト用 ?d=2026-10-20
-const NOW=pd?new Date(pd+"T12:00:00"):new Date();
-function dayIndex(){ const d0=new Date(NOW.getFullYear(),NOW.getMonth(),NOW.getDate()); return Math.round((d0-START)/86400000)+1; }
-const DAY=dayIndex();
 
 /* ==== 場面バンク（全36・師匠は1場面ごとに固定／模範は有力な考え方） ==== */
 const SCENES=[
@@ -176,25 +179,26 @@ function saveLog(o){ try{ localStorage.setItem("scene_log_"+profile,JSON.stringi
 function cur(){ return loadJ("scene_cur_"+profile,null); }
 function saveCur(o){ try{ localStorage.setItem("scene_cur_"+profile,JSON.stringify(o)); }catch(e){} }
 function delCur(){ try{ localStorage.removeItem("scene_cur_"+profile); }catch(e){} }
-function streak(){ const L=log(); let d=DAY; if(!L[d]) d--; let n=0; while(d>=1&&L[d]){ n++; d--; } return n; }
+const NDAYS=Math.ceil(SCENES.length/NEWPD); // 全18日（各場面＝新規1回＋翌日の復習1回）
+function doneCount(){ const L=log(); let n=0; for(let d=1;d<=NDAYS;d++) if(L[d]) n++; return n; }
+function nextUndone(){ const L=log(); for(let d=1;d<=NDAYS;d++) if(!L[d]) return d; return 0; }
 
 /* ==== セッション ==== */
 let S=null;
-function startDay(){
-  if(!profile||DAY<1) return;
-  if(log()[DAY]) return;
-  const items=dayItems(DAY); if(!items.length) return;
-  let c=cur(); let pos=(c&&c.day===DAY)?(c.pos||0):0;
-  saveCur({day:DAY,pos:pos});
-  S={items:items,pos:pos};
+function startDay(d){
+  if(!profile||d<1||d>NDAYS) return;
+  const items=dayItems(d); if(!items.length) return;
+  let c=cur(); let pos=(c&&c.day===d)?(c.pos||0):0;
+  saveCur({day:d,pos:pos});
+  S={day:d,items:items,pos:pos};
   show("quiz"); renderItem();
 }
 function renderItem(){
   const it=S.items[S.pos], sc=SCENES[it.i];
-  $("qprog").textContent=(S.pos+1)+" / "+S.items.length+"場面";
+  $("qprog").textContent="第"+S.day+"日　"+(S.pos+1)+" / "+S.items.length+"場面";
   $("pbar_i").style.width=(S.pos/S.items.length*100)+"%";
   $("qbadge").className=it.mode==="new"?"badge-new":"badge-rev";
-  $("qbadge").textContent=it.mode==="new"?"新規":"復習（昨日の問題）";
+  $("qbadge").textContent=it.mode==="new"?"新規":"復習";
   $("qtag").textContent="師匠："+sc.s;
   $("qtitle").textContent=sc.t;
   $("qscene").textContent=sc.sc;
@@ -215,26 +219,26 @@ function reveal(){
 }
 $("revealBtn").onclick=reveal;
 $("nextBtn").onclick=()=>{
-  S.pos++; saveCur({day:DAY,pos:S.pos});
+  S.pos++; saveCur({day:S.day,pos:S.pos});
   if(S.pos>=S.items.length){ finishDay(); return; }
   renderItem();
 };
 function finishDay(){
-  const L=log(); L[DAY]={date:(NOW.getMonth()+1)+"/"+NOW.getDate(),done:true}; saveLog(L); delCur();
-  $("rTitle").textContent="第"+DAY+"日 完了！";
-  $("rSub").textContent="🔥 連続"+streak()+"日";
-  $("rMsg").textContent="今日の4場面、自分の言葉にできたね。答えは一つじゃない——「なぜそうするか」を言えたことが力になる。";
+  const L=log(); L[S.day]={done:true}; saveLog(L); delCur();
+  $("rTitle").textContent="第"+S.day+"日 完了！";
+  $("rSub").textContent="達成 "+doneCount()+" / "+NDAYS+"日";
+  $("rMsg").textContent="4場面おつかれさま。答えは一つじゃない——「なぜそうするか」を自分で言えたことが力になる。";
   show("result");
-  if(navigator.share){ try{ doShare(); }catch(e){} }
+  if(navigator.share){ try{ doShare(S.day); }catch(e){} }
 }
 
-/* ==== 共有（今日やった場面を父上へ＝達成通知） ==== */
-function doShare(){
-  const ni=newIdxs(DAY), ri=reviewIdxs(DAY);
+/* ==== 共有（やった場面を父上へ＝達成通知） ==== */
+function doShare(d){
+  d=d||(S&&S.day)||0; if(!d) return;
+  const ni=newIdxs(d), ri=reviewIdxs(d);
   const titles=ni.map(i=>SCENES[i].t);
-  let body="⚾今日の1場面 第"+DAY+"日 完了！｜"+profile+"（🔥連続"+streak()+"日）\n";
-  body+="今日の新規："+titles.join(" / ")+"\n";
-  body+="（＋昨日の"+ri.length+"場面を復習）\n";
+  let body="⚾今日の1場面 第"+d+"日 完了！｜"+profile+"（達成"+doneCount()+"/"+NDAYS+"日）\n";
+  body+="新規："+titles.join(" / ")+"\n（＋復習"+ri.length+"場面）\n";
   body+="\n"+location.origin+location.pathname;
   if(navigator.share){ navigator.share({text:body}).catch(function(){}); return; }
   if(navigator.clipboard&&navigator.clipboard.writeText){
@@ -252,29 +256,22 @@ function renderStart(){
     el.onclick=()=>{ profile=p; localStorage.setItem("scene_profile",p); renderStart(); };
     pc.appendChild(el);
   });
-  const t=$("todayCard"), btn=$("startBtn");
-  btn.classList.add("hidden"); $("shareTop").classList.add("hidden");
-  if(!profile){ t.innerHTML="👤 だれがやるか選んでね（記録は別々）"; }
-  else if(DAY<1){ t.innerHTML="⚾ 10/13 開幕！ おたのしみに"; }
-  else{
-    const L=log(), ni=newIdxs(DAY), ri=reviewIdxs(DAY), tot=ni.length+ri.length;
-    const dateStr=(NOW.getMonth()+1)+"/"+NOW.getDate();
-    const head="📅 <b>"+dateStr+"（第"+DAY+"日）</b>　新規"+ni.length+" ＋ 復習"+ri.length+" ＝ "+tot+"場面";
-    if(L[DAY]){
-      t.innerHTML=head+"<br><b>✅ 本日クリア！</b>　🔥連続"+streak()+"日";
-      $("shareTop").classList.remove("hidden");
-    }else{
-      const c=cur(); const resumed=c&&c.day===DAY&&c.pos>0;
-      t.innerHTML=head+(streak()>0?"　🔥連続"+streak()+"日中":"");
-      btn.textContent=resumed?("▶ つづきから（"+(c.pos+1)+"場面目）"):("▶ 今日の"+tot+"場面を始める");
-      btn.classList.remove("hidden");
-    }
+  const t=$("todayCard"), grid=$("dayGrid");
+  if(!profile){ t.innerHTML="👤 だれがやるか選んでね（記録は別々）"; grid.innerHTML=""; return; }
+  const L=log(), nx=nextUndone(), c=cur();
+  t.innerHTML="毎日ひとつ、日を選んでやろう。<b>やってない日は戻って</b>、やる気があれば<b>先に進んで</b>もOK。<br>達成 <b>"+doneCount()+" / "+NDAYS+"日</b>";
+  grid.innerHTML="";
+  for(let d=1;d<=NDAYS;d++){
+    const done=!!L[d], rec=(d===nx), resuming=(c&&c.day===d&&c.pos>0&&!done);
+    const cell=document.createElement("button");
+    cell.className="daybtn"+(done?" done":"")+(rec?" rec":"");
+    cell.innerHTML="<b>第"+d+"日</b><span>"+(done?"✅ 済":(resuming?"▶ 途中":(rec?"▶ ここから":"・")))+"</span>";
+    cell.onclick=()=>startDay(d);
+    grid.appendChild(cell);
   }
 }
-$("startBtn").onclick=startDay;
-$("shareTop").onclick=doShare;
-$("shareBtn2").onclick=doShare;
-$("quitBtn").onclick=()=>{ if(S) saveCur({day:DAY,pos:S.pos}); if(confirm("中断しますか？（ここまでの答えは保存され、つづきから再開できます）")){ show("start"); renderStart(); } };
+$("shareBtn2").onclick=()=>doShare();
+$("quitBtn").onclick=()=>{ if(S) saveCur({day:S.day,pos:S.pos}); if(confirm("中断しますか？（ここまでは保存され、つづきから再開できます）")){ show("start"); renderStart(); } };
 $("homeBtn").onclick=()=>{ show("start"); renderStart(); };
 function show(w){ ["start","quiz","result"].forEach(id=>$(id).classList.toggle("hidden",id!==w)); window.scrollTo(0,0); }
 renderStart();
